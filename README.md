@@ -1,7 +1,7 @@
 <div align="center">
   <a id="readme-top"></a>
 
-  <img src="./仓库图标.png" alt="WebSpeak 项目图标" width="190" />
+  <img src="./image.png" alt="WebSpeak 项目图标" width="190" />
 
   <h1>WebSpeak</h1>
 
