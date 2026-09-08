@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.1.8] — 2026-09-08
+
+### 中文
+
+- Docker 默认使用 host 网络，支持网关访问同机 TeamSpeak 并直接暴露 WebRTC UDP 端口。
+- 开放模式统一校验用户提交的目标地址，包括管理员默认目标，修复本机与内网目标绕过限制的问题。
+- TeamSpeak SDK 连接握手增加 15 秒超时，失败连接会及时清理。
+- 网络性能面板改为持续监测，打开后每 3 秒更新一次延迟与丢包率。
+
+### English
+
+- Docker now uses host networking by default, allowing the gateway to reach a local TeamSpeak server and expose the WebRTC UDP range directly.
+- Open access now validates every submitted target, including the administrator default, closing loopback and private-network bypasses.
+- Added a 15-second TeamSpeak SDK handshake timeout with prompt cleanup after failed connections.
+- The network performance panel now measures continuously and refreshes latency and packet loss every 3 seconds while open.
+
+### Deutsch
+
+- Docker verwendet standardmäßig das Host-Netzwerk, damit das Gateway einen lokalen TeamSpeak-Server erreicht und den WebRTC-UDP-Bereich direkt bereitstellt.
+- Der offene Zugriffsmodus prüft nun jedes Ziel einschließlich des Administrator-Standards und schließt Umgehungen für Loopback- und private Netze.
+- Für den TeamSpeak-SDK-Handshake gilt jetzt ein Timeout von 15 Sekunden; fehlgeschlagene Verbindungen werden zeitnah bereinigt.
+- Das Netzwerkleistungsfeld misst bei geöffneter Ansicht fortlaufend und aktualisiert Latenz und Paketverlust alle 3 Sekunden.
+
 ## [0.1.7] — 2026-09-06
 
 ### 中文
