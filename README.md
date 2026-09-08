@@ -163,7 +163,7 @@ WebSpeak 面向希望通过网页提供 TeamSpeak 语音服务的个人、社区
 
 | 版本 | 日期 | 摘要 |
 | --- | --- | --- |
-| [v0.1.8](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.8) | 2026-09-08 | Docker 默认使用 host 网络；开放模式加强目标校验；SDK 增加 15 秒连接超时；网络性能面板改为每 3 秒持续监测。 |
+| [v0.1.8](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.8) | 2026-09-08 | 简化 Docker 部署并支持连接同机 TeamSpeak；开放模式加强目标校验；SDK 增加 15 秒连接超时；网络性能面板改为每 3 秒持续监测。 |
 | [v0.1.7](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.7) | 2026-09-06 | 增加德语支持、Telegram 群组入口、网络性能面板和丢包率测试；管理员测试不再创建临时客户端，并修复语言菜单留白与伴奏音量波动。 |
 | [v0.1.6](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.6) | 2026-09-04 | 新增桌面端伴奏、身份保持提醒和网站图标，并修复 WebRTC 下的成员独立音量。 |
 | [v0.1.5](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.5) | 2026-09-04 | 修复身份保持逻辑，优化主题切换按钮。 |
@@ -194,7 +194,7 @@ docker compose pull
 docker compose up -d
 ```
 
-Compose 使用 host 网络模式，WebSpeak 直接监听宿主机的 `3040/TCP`，并直接使用宿主机的 WebRTC UDP 端口范围；因此这里不再使用 Docker 端口映射。数据保存在 Docker volume `webspeak-data`。若反向代理也运行在容器中，上游应指向宿主机地址，而不是 `webspeak:3040`。查看状态：
+启动后访问 `http://<你的主机>:3040`。如使用反向代理，将上游设置为 `http://<你的主机>:3040`；启用 WebRTC 时，放行管理后台显示的 UDP 端口范围。数据保存在 Docker volume `webspeak-data`。查看状态：
 
 ```bash
 docker compose ps
@@ -210,12 +210,6 @@ docker compose up -d
 ```
 
 不要执行 `docker compose down -v`，否则会删除数据库、管理员设置和其他持久化数据。
-
-如需修改宿主机网页端口，在仓库目录创建 `.env`：
-
-```dotenv
-WEBSPEAK_PORT=3041
-```
 
 #### Windows / Linux 发布包
 
@@ -255,8 +249,8 @@ npm start
 | --- | --- |
 | 浏览器 | 建议使用最新版 Chrome、Edge 或其他支持 WebRTC 的现代浏览器。麦克风和屏幕音频通常要求 HTTPS 安全上下文。 |
 | TeamSpeak 网络 | WebSpeak 主机必须能够访问目标 TeamSpeak 服务器。目标默认语音端口为 `9987`，也可在网页中填写其他端口。 |
-| Web 服务网络 | Docker Compose 使用 host 网络模式，服务直接监听宿主机 `3040/TCP`。公网部署建议通过 HTTPS 反向代理提供网页和 WebSocket。 |
-| WebRTC | 默认使用 `40000–40099/UDP`，host 网络模式会直接使用宿主机端口；云安全组和主机防火墙仍需放行。自定义范围时只需同步放行该范围。启用 WebRTC 后需先关闭它才能修改端口范围。 |
+| Web 服务网络 | 服务使用 `3040/TCP`。公网部署建议通过 HTTPS 反向代理提供网页和 WebSocket。 |
+| WebRTC | 默认使用 `40000–40099/UDP`，请在云安全组和主机防火墙中放行。自定义范围时同步放行对应端口；启用 WebRTC 后需先关闭它才能修改端口范围。 |
 | 身份保持 | 同一浏览器身份同时只能保持一条活动连接。需要并行连接时，请取消第二条连接的“保持身份”，或使用另一个浏览器/浏览器配置文件。 |
 | 伴奏 | 仅桌面端提供，并要求启用 WebRTC。选择窗口或标签页时必须同时勾选共享音频；浏览器无法直接任意读取本地应用音频。 |
 | 数据 | Docker 数据位于 `webspeak-data` volume；发布包和源码运行的数据位于程序目录的 `data/`。升级或迁移前建议从管理后台导出数据库备份。 |
@@ -332,7 +326,7 @@ These screenshots come from the Shanghai test node and show the welcome page, vo
 
 | Version | Date | Summary |
 | --- | --- | --- |
-| [v0.1.8](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.8) | 2026-09-08 | Docker now uses host networking; open-target validation is hardened; the SDK has a 15-second connection timeout; network metrics refresh continuously every 3 seconds. |
+| [v0.1.8](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.8) | 2026-09-08 | Simplified Docker deployment for local TeamSpeak targets; hardened open-target validation; added a 15-second SDK connection timeout; network metrics now refresh every 3 seconds. |
 | [v0.1.7](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.7) | 2026-09-06 | Added German support, a Telegram community link, network performance and packet-loss checks; admin tests no longer create temporary clients, and language-menu spacing and accompaniment volume fluctuations were fixed. |
 | [v0.1.6](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.6) | 2026-09-04 | Added desktop accompaniment, remembered-identity guidance, and the site icon; fixed per-member volume under WebRTC. |
 | [v0.1.5](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.5) | 2026-09-04 | Fixed identity persistence and refined the theme switch. |
@@ -363,7 +357,7 @@ docker compose pull
 docker compose up -d
 ```
 
-Docker Compose uses host networking: WebSpeak listens directly on the host at `3040/TCP` and uses the host's WebRTC UDP range without Docker port mappings. Persistent data is stored in the `webspeak-data` Docker volume. If the reverse proxy also runs in Docker, point it to the host address rather than `webspeak:3040`. Check the service with:
+After startup, open `http://<your-host>:3040`. If you use a reverse proxy, set its upstream to `http://<your-host>:3040`. When WebRTC is enabled, allow the UDP range shown in the administration console. Persistent data is stored in the `webspeak-data` Docker volume. Check the service with:
 
 ```bash
 docker compose ps
@@ -379,12 +373,6 @@ docker compose up -d
 ```
 
 Do not run `docker compose down -v`; it removes the database, administrator settings, and other persistent data.
-
-To change the host-side web port, create `.env` in the repository directory:
-
-```dotenv
-WEBSPEAK_PORT=3041
-```
 
 #### Windows / Linux release packages
 
@@ -424,8 +412,8 @@ Building `@discordjs/opus` requires Python, Make, and a C/C++ toolchain. For dev
 | --- | --- |
 | Browser | Use a current Chrome, Edge, or another modern browser with WebRTC support. Microphone and shared-screen audio normally require an HTTPS secure context. |
 | TeamSpeak network | The WebSpeak host must be able to reach the target TeamSpeak server. The default voice port is `9987`, and other ports can be entered in the web interface. |
-| Web network | Docker Compose uses host networking and the service listens directly on the host at `3040/TCP`. Public deployments should expose the page and WebSocket through an HTTPS reverse proxy. |
-| WebRTC | The default range is `40000–40099/UDP`; host networking uses the host ports directly. The cloud security group and host firewall must still allow the range. For a custom range, only the firewall rules need to be updated. Disable WebRTC before changing the range. |
+| Web network | The service uses `3040/TCP`. Public deployments should expose the page and WebSocket through an HTTPS reverse proxy. |
+| WebRTC | The default range is `40000–40099/UDP`; allow it in the cloud security group and host firewall. For a custom range, allow the corresponding ports. Disable WebRTC before changing the range. |
 | Remembered identity | One browser identity can hold only one active remembered connection at a time. For parallel connections, disable **Remember identity** on the second connection or use another browser/profile. |
 | Accompaniment | Desktop only and requires WebRTC. When selecting a window or tab, enable audio sharing as well. Browsers cannot arbitrarily capture every local application's audio. |
 | Data | Docker data is stored in the `webspeak-data` volume. Release packages and source installs store data in the program directory's `data/` folder. Export a database backup from the admin console before upgrades or migration. |
@@ -501,7 +489,7 @@ Diese Screenshots stammen vom Shanghai-Testknoten und zeigen die Willkommensseit
 
 | Version | Datum | Zusammenfassung |
 | --- | --- | --- |
-| [v0.1.8](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.8) | 2026-09-08 | Docker verwendet jetzt das Host-Netzwerk; die Zielprüfung im offenen Modus wurde gehärtet; das SDK erhält ein 15-Sekunden-Verbindungs-Timeout; Netzwerkmetriken werden alle 3 Sekunden fortlaufend aktualisiert. |
+| [v0.1.8](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.8) | 2026-09-08 | Docker-Bereitstellung für lokale TeamSpeak-Ziele vereinfacht; Zielprüfung im offenen Modus gehärtet; 15-Sekunden-Timeout für SDK-Verbindungen ergänzt; Netzwerkmetriken werden alle 3 Sekunden aktualisiert. |
 | [v0.1.7](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.7) | 2026-09-06 | Deutsche Oberfläche, Telegram-Link sowie Netzwerk- und Paketverlustprüfung hinzugefügt; Admin-Tests erzeugen keine temporären Clients mehr, außerdem wurden Sprachmenü-Leerraum und Begleitton-Schwankungen behoben. |
 | [v0.1.6](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.6) | 2026-09-04 | Desktop-Begleitton, Hinweise zur Identität und Website-Symbol hinzugefügt; individuelle Lautstärke unter WebRTC korrigiert. |
 | [v0.1.5](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.5) | 2026-09-04 | Identitätsspeicherung korrigiert und Designumschaltung verbessert. |
@@ -529,7 +517,7 @@ docker compose pull
 docker compose up -d
 ```
 
-Docker Compose verwendet das Host-Netzwerk: WebSpeak lauscht direkt auf dem Host unter `3040/TCP` und nutzt den WebRTC-UDP-Bereich ohne Docker-Portzuordnung. Die persistenten Daten liegen im Docker-Volume `webspeak-data`. Läuft der Reverse Proxy ebenfalls in Docker, muss er auf die Host-Adresse statt auf `webspeak:3040` zeigen. Für WebRTC muss zusätzlich der im Adminbereich angezeigte UDP-Portbereich freigegeben werden.
+Nach dem Start ist WebSpeak unter `http://<dein-host>:3040` erreichbar. Bei einem Reverse Proxy muss das Upstream-Ziel `http://<dein-host>:3040` sein. Für WebRTC muss der im Adminbereich angezeigte UDP-Portbereich freigegeben werden. Die persistenten Daten liegen im Docker-Volume `webspeak-data`.
 
 #### Release-Pakete
 
@@ -547,7 +535,7 @@ Lade das passende Paket von [GitHub Releases](https://github.com/EchoSixHIYA/Web
 | --- | --- |
 | Browser | Aktuelles Chrome, Edge oder ein moderner WebRTC-fähiger Browser wird empfohlen. Für Mikrofon- und Bildschirm-Audio ist normalerweise HTTPS erforderlich. |
 | TeamSpeak-Netzwerk | Der WebSpeak-Host muss den Zielserver erreichen können. Der Standard-Sprachport ist `9987`; andere Ports können im Webinterface eingetragen werden. |
-| WebRTC | Der Standardbereich ist `40000–40099/UDP`; durch das Host-Netzwerk werden die Host-Ports direkt verwendet. Firewall und Sicherheitsgruppe müssen den gesamten Bereich erlauben. |
+| WebRTC | Der Standardbereich ist `40000–40099/UDP`; Firewall und Sicherheitsgruppe müssen den gesamten Bereich erlauben. Bei einem benutzerdefinierten Bereich sind die entsprechenden Ports freizugeben. |
 | Gespeicherte Identität | Eine Browseridentität kann nur eine aktive gespeicherte Verbindung gleichzeitig halten. Für parallele Verbindungen die Option deaktivieren oder ein anderes Browserprofil verwenden. |
 | Begleitton | Nur auf Desktop-Browsern verfügbar und WebRTC erforderlich. Bei der Freigabe eines Fensters oder Tabs muss auch Audio freigegeben werden. |
 | Selbsthosting | WebSpeak ist kein offizielles TeamSpeak-Produkt. Namen und Marken gehören den jeweiligen Rechteinhabern. |
