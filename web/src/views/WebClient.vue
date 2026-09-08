@@ -102,7 +102,7 @@
             <div class="network-performance">
               <button type="button" class="performance-trigger" :title="t('networkPerformance')" :aria-label="t('networkPerformance')" :aria-expanded="performancePanelOpen" @click.stop="togglePerformancePanel"><Icon name="activity" :size="16" /><span class="performance-trigger-label">{{ t('networkPerformance') }}</span><small v-if="performanceStats.ready && performanceStats.gatewayLatencyMs != null">{{ performanceStats.gatewayLatencyMs }} ms</small><Icon name="chevron-down" :size="13" /></button>
               <section v-if="performancePanelOpen" class="performance-panel" role="dialog" :aria-label="t('networkPerformance')" @click.stop>
-                <header><div><strong>{{ t('networkPerformance') }}</strong><small>{{ t('networkPerformanceHint') }}</small></div><button type="button" class="performance-refresh" :title="t('measureNow')" :disabled="performanceRunning" @click="runPerformanceProbe"><Icon name="refresh" :size="15" /></button></header>
+                <header><div><strong>{{ t('networkPerformance') }}</strong><small>{{ t('networkPerformanceHint') }}</small></div><button type="button" class="performance-refresh" :title="t('measureNow')" :disabled="performanceRunning" @click="refreshPerformanceProbe"><Icon name="refresh" :size="15" /></button></header>
                 <div class="performance-route"><span>{{ t('browser') }}</span><i></i><span>{{ t('webSpeakGateway') }}</span><i></i><span>{{ t('teamSpeakServer') }}</span></div>
                 <div class="performance-metrics"><article><small>{{ t('browserToGateway') }}</small><strong>{{ performanceStats.gatewayLatencyMs == null ? '—' : `${performanceStats.gatewayLatencyMs} ms` }}</strong><span>{{ t('packetLoss') }} {{ performanceStats.gatewayLossPercent == null ? '—' : `${performanceStats.gatewayLossPercent}%` }}</span></article><article><small>{{ t('gatewayToTeamSpeak') }}</small><strong>{{ performanceStats.teamSpeakLatencyMs == null ? '—' : `${performanceStats.teamSpeakLatencyMs} ms` }}</strong><span>{{ t('packetLoss') }} {{ performanceStats.teamSpeakLossPercent == null ? '—' : `${performanceStats.teamSpeakLossPercent}%` }}</span></article></div>
                 <p class="performance-status">{{ performanceRunning ? t('measuring') : performanceStats.ready ? t('measureComplete') : t('measureUnavailable') }}</p>
@@ -408,7 +408,7 @@ const performanceProbeResults = ref<Array<LatencyProbeResult | null>>([]);
 const performanceAttempts = ref(0);
 const PERFORMANCE_INTERVAL_MS = 3_000;
 const PERFORMANCE_WINDOW_SIZE = 20;
-let performanceTimer: ReturnType<typeof setInterval> | null = null;
+let performanceTimer: number | null = null;
 let performanceMonitorGeneration = 0;
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -1477,6 +1477,10 @@ function stopPerformanceMonitoring(): void {
   }
   performanceMonitorGeneration += 1;
   performanceRunning.value = false;
+}
+
+function refreshPerformanceProbe(): void {
+  void runPerformanceProbe();
 }
 
 async function runPerformanceProbe(generation = performanceMonitorGeneration): Promise<void> {
