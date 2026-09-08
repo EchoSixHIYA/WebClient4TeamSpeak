@@ -404,8 +404,12 @@ const whisperPttActive = ref(false);
 const performancePanelOpen = ref(false);
 const performanceRunning = ref(false);
 const performanceSamples = ref<LatencyProbeResult[]>([]);
+const performanceProbeResults = ref<Array<LatencyProbeResult | null>>([]);
 const performanceAttempts = ref(0);
-const performanceProbeCount = 4;
+const PERFORMANCE_INTERVAL_MS = 3_000;
+const PERFORMANCE_WINDOW_SIZE = 20;
+let performanceTimer: ReturnType<typeof setInterval> | null = null;
+let performanceMonitorGeneration = 0;
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
 type Language = "zh" | "en" | "de";
@@ -668,7 +672,7 @@ const translations: Record<string, Record<string, string>> = {
     gatewayToTeamSpeak: "WebSpeak → TeamSpeak",
     packetLoss: "丢包",
     measuring: "正在测量…",
-    measureComplete: "已完成 4 次探测",
+    measureComplete: "持续监测中（每 3 秒更新）",
     measureNow: "立即测量",
     measureUnavailable: "连接后可测量",
     langSwitch: "English",
@@ -925,7 +929,7 @@ const translations: Record<string, Record<string, string>> = {
     gatewayToTeamSpeak: "WebSpeak → TeamSpeak",
     packetLoss: "Packet loss",
     measuring: "Measuring…",
-    measureComplete: "4 probes complete",
+    measureComplete: "Monitoring continuously (updates every 3s)",
     measureNow: "Measure now",
     measureUnavailable: "Available after connecting",
     langSwitch: "中文",
@@ -1185,7 +1189,7 @@ translations.de = {
     gatewayToTeamSpeak: "WebSpeak → TeamSpeak",
     packetLoss: "Paketverlust",
     measuring: "Wird gemessen…",
-    measureComplete: "4 Messungen abgeschlossen",
+    measureComplete: "Laufende Messung (alle 3 Sekunden)",
     measureNow: "Jetzt messen",
     measureUnavailable: "Nach der Verbindung verfügbar",
     langSwitch: "中文",
@@ -1354,14 +1358,15 @@ const median = (values: number[]) => {
 };
 const performanceStats = computed(() => {
   const samples = performanceSamples.value;
+  const attempts = performanceAttempts.value;
   const gatewaySamples = samples.map((sample) => sample.browserRttMs);
   const teamSpeakSamples = samples.filter((sample) => sample.teamSpeakReachable && sample.teamSpeakLatencyMs != null).map((sample) => sample.teamSpeakLatencyMs as number);
   return {
     gatewayLatencyMs: median(gatewaySamples),
-    gatewayLossPercent: performanceAttempts.value >= performanceProbeCount ? Math.round(((performanceProbeCount - samples.length) / performanceProbeCount) * 100) : null,
+    gatewayLossPercent: attempts > 0 ? Math.round(((attempts - samples.length) / attempts) * 100) : null,
     teamSpeakLatencyMs: median(teamSpeakSamples),
-    teamSpeakLossPercent: performanceAttempts.value >= performanceProbeCount ? Math.round(((performanceProbeCount - teamSpeakSamples.length) / performanceProbeCount) * 100) : null,
-    ready: performanceAttempts.value >= performanceProbeCount,
+    teamSpeakLossPercent: attempts > 0 ? Math.round(((attempts - teamSpeakSamples.length) / attempts) * 100) : null,
+    ready: attempts > 0,
   };
 });
 
@@ -1424,7 +1429,10 @@ watch([rememberIdentity, identityMaterial], ([remember, material]) => {
   if (!remember && material) identityMaterial.value = "";
 });
 watch(() => voiceState.connected, (connected) => {
-  if (!connected) return;
+  if (!connected) {
+    stopPerformanceMonitoring();
+    return;
+  }
   playNotification("connected");
   const address = currentServerTarget();
   if (!address) return;
@@ -1437,31 +1445,52 @@ watch(() => voiceState.connected, (connected) => {
     ...(channel.value.trim() ? { lastChannelHint: { name: channel.value.trim() } } : {}),
   };
   void recordRecentServer(recent).then(() => listRecentServers().then((items) => { recentServers.value = items; }));
+  if (performancePanelOpen.value) startPerformanceMonitoring();
 });
 
 function togglePerformancePanel() {
   performancePanelOpen.value = !performancePanelOpen.value;
-  if (performancePanelOpen.value && !performanceRunning.value && !performanceStats.value.ready) void runPerformanceProbe();
+  if (performancePanelOpen.value) startPerformanceMonitoring();
+  else stopPerformanceMonitoring();
 }
 
-function waitForPerformanceProbe(ms: number): Promise<void> {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
-}
-
-async function runPerformanceProbe() {
-  if (performanceRunning.value || !voiceState.connected) return;
-  performanceRunning.value = true;
+function resetPerformanceSamples(): void {
+  performanceProbeResults.value = [];
   performanceSamples.value = [];
   performanceAttempts.value = 0;
+}
+
+function startPerformanceMonitoring(): void {
+  if (performanceTimer || !voiceState.connected) return;
+  resetPerformanceSamples();
+  const generation = ++performanceMonitorGeneration;
+  void runPerformanceProbe(generation);
+  performanceTimer = window.setInterval(() => {
+    void runPerformanceProbe(generation);
+  }, PERFORMANCE_INTERVAL_MS);
+}
+
+function stopPerformanceMonitoring(): void {
+  if (performanceTimer) {
+    clearInterval(performanceTimer);
+    performanceTimer = null;
+  }
+  performanceMonitorGeneration += 1;
+  performanceRunning.value = false;
+}
+
+async function runPerformanceProbe(generation = performanceMonitorGeneration): Promise<void> {
+  if (performanceRunning.value || !voiceState.connected || !performancePanelOpen.value) return;
+  performanceRunning.value = true;
   try {
-    for (let index = 0; index < performanceProbeCount; index += 1) {
-      const sample = await measureLatency();
-      if (sample) performanceSamples.value.push(sample);
-      performanceAttempts.value += 1;
-      if (index < performanceProbeCount - 1) await waitForPerformanceProbe(220);
-    }
+    const sample = await measureLatency();
+    if (generation !== performanceMonitorGeneration || !performancePanelOpen.value) return;
+    performanceProbeResults.value.push(sample);
+    if (performanceProbeResults.value.length > PERFORMANCE_WINDOW_SIZE) performanceProbeResults.value.shift();
+    performanceAttempts.value = performanceProbeResults.value.length;
+    performanceSamples.value = performanceProbeResults.value.filter((result): result is LatencyProbeResult => result !== null);
   } finally {
-    performanceRunning.value = false;
+    if (generation === performanceMonitorGeneration) performanceRunning.value = false;
   }
 }
 watch(() => voiceState.reconnecting, (reconnecting, wasReconnecting) => {
@@ -1509,6 +1538,7 @@ onMounted(() => {
   viewportMediaQuery.addEventListener?.("change", viewportChangeHandler);
 });
 onUnmounted(() => {
+  stopPerformanceMonitoring();
   disconnect();
   if (deviceChangeHandler) navigator.mediaDevices?.removeEventListener("devicechange", deviceChangeHandler);
   if (viewportMediaQuery && viewportChangeHandler) viewportMediaQuery.removeEventListener?.("change", viewportChangeHandler);

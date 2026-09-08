@@ -57,6 +57,8 @@ export class EndpointProtocolCache {
 
 export const endpointProtocolCache = new EndpointProtocolCache();
 
+const TEAM_SPEAK_CONNECT_TIMEOUT_MS = 15_000;
+
 export interface TeamSpeakAdapterOptions {
   target: TeamSpeakTarget;
   nickname: string;
@@ -109,8 +111,9 @@ export class TeamSpeakAdapter {
     this.logger.info({ target: formatTeamSpeakTarget(this.target), cachedProtocol }, "Connecting through TeamSpeak adapter");
     try {
       await this.client.connect();
-      await this.client.waitConnected();
+      await this.client.waitConnected(AbortSignal.timeout(TEAM_SPEAK_CONNECT_TIMEOUT_MS));
     } catch (error: unknown) {
+      await this.client.disconnect().catch(() => undefined);
       throw normalizeTeamSpeakError(error);
     }
 

@@ -3,9 +3,9 @@ services:
     image: ${WEBSPEAK_IMAGE:-ghcr.io/echosixhiya/webspeak:latest}
     pull_policy: missing
     restart: unless-stopped
-    ports:
-      - "${WEBSPEAK_PORT:-3040}:3040"
-      - "40000-40099:40000-40099/udp"
+    # WebSpeak needs to reach a TeamSpeak server running on the same host.
+    # Host networking also exposes the configured WebRTC UDP range directly.
+    network_mode: host
     volumes:
       - webspeak-data:/data
 

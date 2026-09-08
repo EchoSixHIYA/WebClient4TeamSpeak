@@ -109,10 +109,12 @@ export function createWebServer(options: WebServerOptions): WebServer {
         if (policy.accessMode === "open" && typeof body.target === "string" && body.target.trim()) {
           target = parseTeamSpeakTarget(body.target);
           const isDefault = teamSpeakTargetKey(target) === teamSpeakTargetKey(policy.defaultTarget);
-          if (!isDefault) {
-            target = await resolveSafeOpenTarget(target);
-            serverPassword = typeof body.serverPassword === "string" ? body.serverPassword.slice(0, 512) : "";
-          }
+          // Open mode must protect the gateway even when a user submits the
+          // same address configured as the administrator's default target.
+          // The default target only controls which server is prefilled; it is
+          // not a trust boundary and must not bypass SSRF protection.
+          target = await resolveSafeOpenTarget(target);
+          if (!isDefault) serverPassword = typeof body.serverPassword === "string" ? body.serverPassword.slice(0, 512) : "";
         }
       } catch {
         response.status(400).json({ ok: false, code: "TARGET_NOT_ALLOWED" });
