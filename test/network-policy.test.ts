@@ -14,5 +14,6 @@ test("open mode blocks loopback, private, link-local, multicast and reserved ran
 
 test("validated literal target is returned for the actual connection", async () => {
   assert.deepEqual(await resolveSafeOpenTarget({ host: "8.8.8.8", port: 9987 }), { host: "8.8.8.8", port: 9987 });
+  assert.deepEqual(await resolveSafeOpenTarget({ host: "2606:4700:4700::1111", port: 9987 }), { host: "2606:4700:4700::1111", port: 9987 });
   await assert.rejects(resolveSafeOpenTarget({ host: "127.0.0.1", port: 9987 }));
 });
