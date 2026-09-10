@@ -39,6 +39,7 @@
 - [简体中文](#简体中文)
   - [界面截图](#zh-screenshots)
   - [特性](#zh-features)
+  - [高级功能](#zh-advanced)
   - [更新日志](#zh-changelog)
   - [部署方案](#zh-deployment)
   - [要求和注意事项](#zh-requirements)
@@ -46,6 +47,7 @@
 - [English](#english)
   - [Screenshots](#en-screenshots)
   - [Features](#en-features)
+  - [Advanced features](#en-advanced)
   - [Changelog](#en-changelog)
   - [Deployment](#en-deployment)
   - [Requirements and notes](#en-requirements)
@@ -53,6 +55,7 @@
 - [Deutsch](#deutsch)
   - [Screenshots](#de-screenshots)
   - [Funktionen](#de-features)
+  - [Erweiterte Funktionen](#de-advanced)
   - [Änderungsprotokoll](#de-changelog)
   - [Bereitstellung](#de-deployment)
   - [Voraussetzungen und Hinweise](#de-requirements)
@@ -157,12 +160,71 @@ WebSpeak 面向希望通过网页提供 TeamSpeak 语音服务的个人、社区
 | 界面体验 | 提供中文、English 和 Deutsch 界面、浅色/深色主题，以及桌面端和移动端响应式布局。 |
 | 自托管 | 数据由部署者保存；提供 Docker 镜像、Windows x64 和 Linux x64 发布包。 |
 
+<a id="zh-advanced"></a>
+
+### 🧩 高级功能
+
+高级功能都是可选项；不开启时，WebSpeak 仍可使用兼容语音传输。配置入口均在管理员控制台的“服务器”页，保存后对新连接生效。
+
+#### WebRTC 低延迟语音
+
+WebRTC 将浏览器的实时语音从兼容传输切换为更适合实时音频的媒体通道，也支持桌面端伴奏。它由当前 WebSpeak 网关直接提供，不需要另设媒体服务器。
+
+1. 登录 `/admin`，打开“服务器”页的“高级参数”。
+2. 关闭 WebRTC 时设置 UDP 起止端口；默认范围为 `40000–40099`。
+3. 在 WebSpeak 主机的云安全组和防火墙中放行完整 UDP 范围。Docker Compose 使用项目默认配置时，应让宿主机直接承载这些端口。
+4. 勾选“启用 WebRTC”并保存。用户重新进入后即可协商 WebRTC；浏览器或网络不支持时会自动回退到兼容模式。
+
+启用后端口范围会锁定；要修改范围，先关闭 WebRTC 并保存，再修改端口并重新放行。公网使用时还需要 HTTPS，浏览器才会稳定提供麦克风和窗口音频权限。
+
+#### 中继服务器 / 国内服务器加速
+
+中继用于目标 TeamSpeak 服务器拒绝境外连接或直连不稳定的场景。它不是 VPN，只转发当前 WebSpeak 会话的 TeamSpeak UDP 数据；目标服务器仍由用户在网页中选择。
+
+**部署中继服务：**
+
+使用与 WebSpeak 相同的发布包或容器，在中继所在主机启动 `dist/relay.js`。令牌必须是至少 16 个字符的随机值，并在中继与 WebSpeak 管理控制台中保持一致：
+
+```bash
+WEBSPEAK_ACCELERATION_RELAY_TOKEN='replace-with-a-long-random-token' \
+WEBSPEAK_ACCELERATION_RELAY_HOST='0.0.0.0' \
+WEBSPEAK_ACCELERATION_RELAY_PORT='39087' \
+node dist/relay.js
+```
+
+也可以使用发布的 Docker 镜像启动独立中继：
+
+```bash
+docker run -d --name webspeak-relay --restart unless-stopped --network host \
+  -e WEBSPEAK_ACCELERATION_RELAY_TOKEN='replace-with-a-long-random-token' \
+  -e WEBSPEAK_ACCELERATION_RELAY_PORT='39087' \
+  ghcr.io/echosixhiya/webspeak:latest node dist/relay.js
+```
+
+放行中继主机的 UDP 监听端口（默认 `39087`）。默认情况下，中继拒绝显式写入的回环、私网和保留地址；只有在可信内网中确实需要访问这类目标时，才在中继进程设置 `WEBSPEAK_ACCELERATION_RELAY_ALLOW_PRIVATE=true`。
+
+**在 WebSpeak 中启用：**
+
+1. 管理员控制台 → “服务器” → “中继服务器”。
+2. 开启“中继加速”，填写显示名称，例如“大陆节点”。
+3. 填写中继地址，格式为 `relay.example.com#39087`，并输入与中继进程相同的令牌。
+4. 保存后，访客欢迎页会出现以该名称显示的加速选项。用户勾选后，该连接才会通过中继访问目标 TeamSpeak。
+
+关闭并保存中继配置后，访客页面不会继续显示该选项；环境变量不会替代管理员控制台中的公开网关配置。
+
+#### 依赖与归属
+
+- **中继服务：** WebSpeak 自带实现，基于 Node.js 标准库 `node:dgram`、`node:crypto`、`node:dns/promises` 和 `node:net`，不使用 GOST、sing-box 或其他代理框架。
+- **WebRTC：** 使用 [werift](https://github.com/shinyoshiaki/werift-webrtc) `0.24.4`，其上游项目采用 MIT 许可证。
+- **TeamSpeak 协议：** 使用项目维护的 [EchoSixHIYA/teamspeak-js](https://github.com/EchoSixHIYA/teamspeak-js) SDK fork；它负责 TeamSpeak 协议连接，不是中继服务本身。
+
 <a id="zh-changelog"></a>
 
 ### 🧾 更新日志
 
 | 版本 | 日期 | 摘要 |
 | --- | --- | --- |
+| 0.2.0-preview | 2026-09-10 | 补充 WebRTC、中继服务器和高级扩展功能的配置教程，明确依赖与组件归属。 |
 | [v0.1.8](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.8) | 2026-09-08 | 简化 Docker 部署并支持连接同机 TeamSpeak；开放模式加强目标校验；SDK 增加 15 秒连接超时；网络性能面板改为每 3 秒持续监测。 |
 | [v0.1.7](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.7) | 2026-09-06 | 增加德语支持、Telegram 群组入口、网络性能面板和丢包率测试；管理员测试不再创建临时客户端，并修复语言菜单留白与伴奏音量波动。 |
 | [v0.1.6](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.6) | 2026-09-04 | 新增桌面端伴奏、身份保持提醒和网站图标，并修复 WebRTC 下的成员独立音量。 |
@@ -320,12 +382,71 @@ These screenshots come from the Shanghai test node and show the welcome page, vo
 | User experience | Chinese, English, and German interfaces, light/dark themes, and responsive desktop/mobile layouts. |
 | Self-hosting | Data stays with the operator; Docker images and Windows x64 / Linux x64 packages are provided. |
 
+<a id="en-advanced"></a>
+
+### 🧩 Advanced features
+
+These features are optional. WebSpeak continues to work with its compatibility voice transport when they are disabled. Configure them from **Administration → Servers**; saved changes apply to new connections.
+
+#### WebRTC low-latency voice
+
+WebRTC moves browser voice from the compatibility transport to a realtime media path and also enables desktop accompaniment. The current WebSpeak gateway provides it directly; no separate media server is required.
+
+1. Sign in at `/admin` and open **Advanced settings** on the **Servers** page.
+2. While WebRTC is disabled, choose the UDP start and end ports. The default range is `40000–40099`.
+3. Allow the complete UDP range in the WebSpeak host's cloud security group and firewall. With the default Docker Compose file, let the host receive these ports directly.
+4. Enable **WebRTC** and save. New visitors will negotiate WebRTC; unsupported browsers or networks fall back to the compatibility transport.
+
+The port range is locked while WebRTC is enabled. Disable and save WebRTC before changing it, then update the firewall rules. Public deployments also need HTTPS for reliable microphone and window-audio permissions.
+
+#### Relay server / mainland acceleration
+
+Use a relay when a TeamSpeak server rejects connections from outside its region or when a direct path is unstable. It is not a VPN: it forwards only the TeamSpeak UDP traffic of the current WebSpeak session, while the visitor still chooses the target server in the web page.
+
+**Start the relay:**
+
+Run `dist/relay.js` from the same release package or container used by WebSpeak. Use a random token of at least 16 characters and configure the same token on the relay and in the WebSpeak administration console:
+
+```bash
+WEBSPEAK_ACCELERATION_RELAY_TOKEN='replace-with-a-long-random-token' \
+WEBSPEAK_ACCELERATION_RELAY_HOST='0.0.0.0' \
+WEBSPEAK_ACCELERATION_RELAY_PORT='39087' \
+node dist/relay.js
+```
+
+You can also run a standalone relay from the published Docker image:
+
+```bash
+docker run -d --name webspeak-relay --restart unless-stopped --network host \
+  -e WEBSPEAK_ACCELERATION_RELAY_TOKEN='replace-with-a-long-random-token' \
+  -e WEBSPEAK_ACCELERATION_RELAY_PORT='39087' \
+  ghcr.io/echosixhiya/webspeak:latest node dist/relay.js
+```
+
+Allow the relay host's UDP listen port (default `39087`). The relay blocks explicitly entered loopback, private, and reserved targets by default. Only set `WEBSPEAK_ACCELERATION_RELAY_ALLOW_PRIVATE=true` when a trusted internal deployment deliberately needs those targets.
+
+**Enable it in WebSpeak:**
+
+1. Open **Administration → Servers → Relay server**.
+2. Enable relay acceleration and enter a display name such as `Mainland relay`.
+3. Enter the relay endpoint as `relay.example.com#39087` and the same token used by the relay process.
+4. After saving, the welcome page shows an acceleration option with that display name. A visitor must select it for that connection to use the relay.
+
+Disable and save the relay configuration to remove the option from the welcome page. Environment variables do not replace the public gateway configuration saved in the administration console.
+
+#### Dependencies and attribution
+
+- **Relay service:** built into WebSpeak with Node.js built-ins (`node:dgram`, `node:crypto`, `node:dns/promises`, and `node:net`); it does not use GOST, sing-box, or another proxy framework.
+- **WebRTC:** uses [werift](https://github.com/shinyoshiaki/werift-webrtc) `0.24.4`, whose upstream project is licensed under MIT.
+- **TeamSpeak protocol:** uses the project-maintained [EchoSixHIYA/teamspeak-js](https://github.com/EchoSixHIYA/teamspeak-js) SDK fork. This handles TeamSpeak protocol connectivity; it is not the relay implementation.
+
 <a id="en-changelog"></a>
 
 ### 🧾 Changelog
 
 | Version | Date | Summary |
 | --- | --- | --- |
+| 0.2.0-preview | 2026-09-10 | Added configuration guides for WebRTC, relay servers, and advanced extensions, with dependency and component attribution. |
 | [v0.1.8](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.8) | 2026-09-08 | Simplified Docker deployment for local TeamSpeak targets; hardened open-target validation; added a 15-second SDK connection timeout; network metrics now refresh every 3 seconds. |
 | [v0.1.7](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.7) | 2026-09-06 | Added German support, a Telegram community link, network performance and packet-loss checks; admin tests no longer create temporary clients, and language-menu spacing and accompaniment volume fluctuations were fixed. |
 | [v0.1.6](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.6) | 2026-09-04 | Added desktop accompaniment, remembered-identity guidance, and the site icon; fixed per-member volume under WebRTC. |
@@ -483,12 +604,62 @@ Diese Screenshots stammen vom Shanghai-Testknoten und zeigen die Willkommensseit
 | Responsive Oberfläche | Deutsche, englische und chinesische Oberfläche, helle/dunkle Designs sowie Desktop- und Mobilansicht. |
 | Selbst gehostet | Die Daten bleiben beim Betreiber; Docker-, Windows-x64- und Linux-x64-Pakete sind verfügbar. |
 
+<a id="de-advanced"></a>
+
+### 🧩 Erweiterte Funktionen
+
+Diese Funktionen sind optional. Ohne sie arbeitet WebSpeak weiterhin mit dem kompatiblen Sprachtransport. Die Einstellungen befinden sich unter **Administration → Server** und gelten für neue Verbindungen.
+
+#### WebRTC-Sprache mit niedriger Latenz
+
+WebRTC verwendet für Browser-Sprache einen Echtzeit-Medienpfad und ermöglicht außerdem Desktop-Begleitton. Der aktuelle WebSpeak-Gateway stellt WebRTC selbst bereit; ein zusätzlicher Medienserver ist nicht erforderlich.
+
+1. Unter `/admin` anmelden und auf der Seite **Server** die **Erweiterten Einstellungen** öffnen.
+2. Bei deaktiviertem WebRTC Start- und Endport für UDP festlegen. Der Standardbereich ist `40000–40099`.
+3. Den gesamten UDP-Bereich in Sicherheitsgruppe und Firewall des WebSpeak-Hosts freigeben. Bei der Standard-Docker-Compose-Datei müssen diese Ports direkt am Host erreichbar sein.
+4. **WebRTC** aktivieren und speichern. Neue Besucher handeln WebRTC aus; nicht unterstützte Browser oder Netzwerke wechseln automatisch zum kompatiblen Transport.
+
+Der Portbereich ist bei aktiviertem WebRTC gesperrt. Zum Ändern WebRTC zuerst deaktivieren und speichern, danach Firewall-Regeln anpassen. Für öffentliche Bereitstellungen ist außerdem HTTPS für Mikrofon- und Fenster-Audio-Berechtigungen erforderlich.
+
+#### Relay-Server / Beschleunigung
+
+Ein Relay hilft, wenn ein TeamSpeak-Server Verbindungen aus anderen Regionen ablehnt oder der direkte Weg instabil ist. Es ist kein VPN, sondern leitet nur den TeamSpeak-UDP-Verkehr der aktuellen WebSpeak-Sitzung weiter.
+
+**Relay starten:**
+
+`dist/relay.js` aus demselben Release-Paket oder Container wie WebSpeak starten. Ein zufälliges Token mit mindestens 16 Zeichen verwenden und dasselbe Token im Relay sowie in der WebSpeak-Administrationskonsole eintragen:
+
+```bash
+WEBSPEAK_ACCELERATION_RELAY_TOKEN='replace-with-a-long-random-token' \
+WEBSPEAK_ACCELERATION_RELAY_HOST='0.0.0.0' \
+WEBSPEAK_ACCELERATION_RELAY_PORT='39087' \
+node dist/relay.js
+```
+
+Das UDP-Listening-Port des Relay-Hosts freigeben (Standard `39087`). Explizit eingetragene Loopback-, private und reservierte Ziele werden standardmäßig abgelehnt. `WEBSPEAK_ACCELERATION_RELAY_ALLOW_PRIVATE=true` nur in einer vertrauenswürdigen internen Umgebung setzen, wenn solche Ziele absichtlich benötigt werden.
+
+**In WebSpeak aktivieren:**
+
+1. **Administration → Server → Relay-Server** öffnen.
+2. Relay-Beschleunigung aktivieren und einen Anzeigenamen eintragen, zum Beispiel `Mainland relay`.
+3. Den Relay-Endpunkt im Format `relay.example.com#39087` und dasselbe Token eintragen.
+4. Nach dem Speichern erscheint die Beschleunigungsoption mit diesem Namen auf der Willkommensseite. Besucher müssen sie für die jeweilige Verbindung auswählen.
+
+Relay deaktivieren und speichern, um die Option von der Willkommensseite zu entfernen. Umgebungsvariablen ersetzen nicht die im Administrationsbereich gespeicherte öffentliche Gateway-Konfiguration.
+
+#### Abhängigkeiten und Hinweise zur Herkunft
+
+- **Relay-Dienst:** Bestandteil von WebSpeak und mit Node.js-Standardmodulen (`node:dgram`, `node:crypto`, `node:dns/promises`, `node:net`) implementiert; GOST, sing-box oder ein anderes Proxy-Framework wird nicht verwendet.
+- **WebRTC:** verwendet [werift](https://github.com/shinyoshiaki/werift-webrtc) `0.24.4`; das Upstream-Projekt steht unter MIT-Lizenz.
+- **TeamSpeak-Protokoll:** verwendet den projektgepflegten [EchoSixHIYA/teamspeak-js](https://github.com/EchoSixHIYA/teamspeak-js)-SDK-Fork. Dieser ist für die TeamSpeak-Protokollverbindung zuständig, nicht für den Relay-Dienst.
+
 <a id="de-changelog"></a>
 
 ### 🧾 Änderungsprotokoll
 
 | Version | Datum | Zusammenfassung |
 | --- | --- | --- |
+| 0.2.0-preview | 2026-09-10 | Konfigurationsanleitungen für WebRTC, Relay-Server und erweiterte Funktionen ergänzt sowie Abhängigkeiten und Komponenten eindeutig zugeordnet. |
 | [v0.1.8](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.8) | 2026-09-08 | Docker-Bereitstellung für lokale TeamSpeak-Ziele vereinfacht; Zielprüfung im offenen Modus gehärtet; 15-Sekunden-Timeout für SDK-Verbindungen ergänzt; Netzwerkmetriken werden alle 3 Sekunden aktualisiert. |
 | [v0.1.7](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.7) | 2026-09-06 | Deutsche Oberfläche, Telegram-Link sowie Netzwerk- und Paketverlustprüfung hinzugefügt; Admin-Tests erzeugen keine temporären Clients mehr, außerdem wurden Sprachmenü-Leerraum und Begleitton-Schwankungen behoben. |
 | [v0.1.6](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.6) | 2026-09-04 | Desktop-Begleitton, Hinweise zur Identität und Website-Symbol hinzugefügt; individuelle Lautstärke unter WebRTC korrigiert. |
