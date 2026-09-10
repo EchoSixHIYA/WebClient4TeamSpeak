@@ -40,6 +40,9 @@
   - [界面截图](#zh-screenshots)
   - [特性](#zh-features)
   - [高级功能](#zh-advanced)
+    - [WebRTC 低延迟语音](#zh-webrtc)
+    - [中继模式](#zh-relay)
+    - [依赖与归属](#zh-advanced-dependencies)
   - [更新日志](#zh-changelog)
   - [部署方案](#zh-deployment)
   - [要求和注意事项](#zh-requirements)
@@ -48,6 +51,9 @@
   - [Screenshots](#en-screenshots)
   - [Features](#en-features)
   - [Advanced features](#en-advanced)
+    - [WebRTC low-latency voice](#en-webrtc)
+    - [Relay mode](#en-relay)
+    - [Dependencies and attribution](#en-advanced-dependencies)
   - [Changelog](#en-changelog)
   - [Deployment](#en-deployment)
   - [Requirements and notes](#en-requirements)
@@ -56,6 +62,9 @@
   - [Screenshots](#de-screenshots)
   - [Funktionen](#de-features)
   - [Erweiterte Funktionen](#de-advanced)
+    - [WebRTC-Sprache mit niedriger Latenz](#de-webrtc)
+    - [Relay-Modus](#de-relay)
+    - [Abhängigkeiten und Hinweise zur Herkunft](#de-advanced-dependencies)
   - [Änderungsprotokoll](#de-changelog)
   - [Bereitstellung](#de-deployment)
   - [Voraussetzungen und Hinweise](#de-requirements)
@@ -166,7 +175,9 @@ WebSpeak 面向希望通过网页提供 TeamSpeak 语音服务的个人、社区
 
 高级功能都是可选项；不开启时，WebSpeak 仍可使用兼容语音传输。配置入口均在管理员控制台的“服务器”页，保存后对新连接生效。
 
-#### WebRTC 低延迟语音
+<a id="zh-webrtc"></a>
+
+#### 1. WebRTC 低延迟语音
 
 WebRTC 将浏览器的实时语音从兼容传输切换为更适合实时音频的媒体通道，也支持桌面端伴奏。它由当前 WebSpeak 网关直接提供，不需要另设媒体服务器。
 
@@ -177,15 +188,22 @@ WebRTC 将浏览器的实时语音从兼容传输切换为更适合实时音频�
 
 启用后端口范围会锁定；要修改范围，先关闭 WebRTC 并保存，再修改端口并重新放行。公网使用时还需要 HTTPS，浏览器才会稳定提供麦克风和窗口音频权限。
 
-#### 中继服务器 / 国内服务器加速
+<a id="zh-relay"></a>
+
+#### 2. 中继模式
 
 中继用于目标 TeamSpeak 服务器拒绝境外连接或直连不稳定的场景。它不是 VPN，只转发当前 WebSpeak 会话的 TeamSpeak UDP 数据；目标服务器仍由用户在网页中选择。
 
-**部署中继模式：**
+##### 2.1 源码启动
 
 中继模式是 WebSpeak 的专用转发实例：不提供欢迎页、管理员后台，也不允许用户直接登录，只接受已配置网关使用匹配令牌转发的会话。令牌必须是至少 16 个字符的随机值，并在中继与网关管理控制台中保持一致：
 
 ```bash
+git clone --depth 1 https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak.git
+cd WebSpeak-client-for-TeamSpeak
+npm ci --ignore-scripts
+npm run prepare:sdk
+npm run build
 WEBSPEAK_MODE=relay \
 WEBSPEAK_RELAY_TOKEN='replace-with-a-long-random-token' \
 WEBSPEAK_RELAY_HOST='0.0.0.0' \
@@ -193,7 +211,40 @@ WEBSPEAK_RELAY_PORT='39087' \
 node dist/index.js
 ```
 
-也可以使用发布的 Docker 镜像启动独立中继：
+Windows PowerShell 使用以下方式设置环境变量后启动：
+
+```powershell
+$env:WEBSPEAK_MODE = "relay"
+$env:WEBSPEAK_RELAY_TOKEN = "replace-with-a-long-random-token"
+$env:WEBSPEAK_RELAY_HOST = "0.0.0.0"
+$env:WEBSPEAK_RELAY_PORT = "39087"
+node .\dist\index.js
+```
+
+##### 2.2 发布包启动
+
+从 [Releases](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/latest) 下载 Windows x64 或 Linux x64 包并解压：
+
+```bash
+# Linux
+export WEBSPEAK_MODE=relay
+export WEBSPEAK_RELAY_TOKEN='replace-with-a-long-random-token'
+export WEBSPEAK_RELAY_HOST='0.0.0.0'
+export WEBSPEAK_RELAY_PORT='39087'
+./runtime/node ./dist/index.js
+```
+
+Windows PowerShell：
+
+```powershell
+$env:WEBSPEAK_MODE = "relay"
+$env:WEBSPEAK_RELAY_TOKEN = "replace-with-a-long-random-token"
+$env:WEBSPEAK_RELAY_HOST = "0.0.0.0"
+$env:WEBSPEAK_RELAY_PORT = "39087"
+.\runtime\node.exe .\dist\index.js
+```
+
+##### 2.3 Docker 启动
 
 ```bash
 docker run -d --name webspeak-relay --restart unless-stopped --network host \
@@ -205,7 +256,7 @@ docker run -d --name webspeak-relay --restart unless-stopped --network host \
 
 放行中继主机的 UDP 监听端口（默认 `39087`）。默认情况下，中继拒绝显式写入的回环、私网和保留地址；只有在可信内网中确实需要访问这类目标时，才在中继进程设置 `WEBSPEAK_RELAY_ALLOW_PRIVATE=true`。
 
-**在 WebSpeak 中启用：**
+##### 2.4 在 WebSpeak 网关中启用
 
 1. 管理员控制台 → “服务器” → “中继服务器”，添加一个或多个节点。
 2. 为每个节点填写显示名称、地址（例如 `relay.example.com#39087`）和匹配令牌，并保存。
@@ -213,7 +264,9 @@ docker run -d --name webspeak-relay --restart unless-stopped --network host \
 
 关闭并保存中继配置后，访客页面不会继续显示该选项；环境变量不会替代管理员控制台中的公开网关配置。
 
-#### 依赖与归属
+<a id="zh-advanced-dependencies"></a>
+
+#### 3. 依赖与归属
 
 - **中继服务：** WebSpeak 自带实现，基于 Node.js 标准库 `node:dgram`、`node:crypto`、`node:dns/promises` 和 `node:net`，不使用 GOST、sing-box 或其他代理框架。
 - **WebRTC：** 使用 [werift](https://github.com/shinyoshiaki/werift-webrtc) `0.24.4`，其上游项目采用 MIT 许可证。
@@ -389,7 +442,9 @@ These screenshots come from the Shanghai test node and show the welcome page, vo
 
 These features are optional. WebSpeak continues to work with its compatibility voice transport when they are disabled. Configure them from **Administration → Servers**; saved changes apply to new connections.
 
-#### WebRTC low-latency voice
+<a id="en-webrtc"></a>
+
+#### 1. WebRTC low-latency voice
 
 WebRTC moves browser voice from the compatibility transport to a realtime media path and also enables desktop accompaniment. The current WebSpeak gateway provides it directly; no separate media server is required.
 
@@ -400,15 +455,22 @@ WebRTC moves browser voice from the compatibility transport to a realtime media 
 
 The port range is locked while WebRTC is enabled. Disable and save WebRTC before changing it, then update the firewall rules. Public deployments also need HTTPS for reliable microphone and window-audio permissions.
 
-#### Relay server / mainland acceleration
+<a id="en-relay"></a>
+
+#### 2. Relay mode
 
 Use a relay when a TeamSpeak server rejects connections from outside its region or when a direct path is unstable. It is not a VPN: it forwards only the TeamSpeak UDP traffic of the current WebSpeak session, while the visitor still chooses the target server in the web page.
 
-**Run relay mode:**
+##### 2.1 Run from source
 
 Relay mode is a dedicated WebSpeak forwarding instance: it exposes no welcome page or administration console and does not accept direct user sessions. It only accepts gateway sessions carrying a matching relay token. Use a random token of at least 16 characters and configure the same token on the relay and in the gateway administration console:
 
 ```bash
+git clone --depth 1 https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak.git
+cd WebSpeak-client-for-TeamSpeak
+npm ci --ignore-scripts
+npm run prepare:sdk
+npm run build
 WEBSPEAK_MODE=relay \
 WEBSPEAK_RELAY_TOKEN='replace-with-a-long-random-token' \
 WEBSPEAK_RELAY_HOST='0.0.0.0' \
@@ -416,7 +478,40 @@ WEBSPEAK_RELAY_PORT='39087' \
 node dist/index.js
 ```
 
-You can also run a standalone relay from the published Docker image:
+On Windows PowerShell, set the variables before starting:
+
+```powershell
+$env:WEBSPEAK_MODE = "relay"
+$env:WEBSPEAK_RELAY_TOKEN = "replace-with-a-long-random-token"
+$env:WEBSPEAK_RELAY_HOST = "0.0.0.0"
+$env:WEBSPEAK_RELAY_PORT = "39087"
+node .\dist\index.js
+```
+
+##### 2.2 Run from a release package
+
+Download and extract the Windows x64 or Linux x64 package from [Releases](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/latest):
+
+```bash
+# Linux
+export WEBSPEAK_MODE=relay
+export WEBSPEAK_RELAY_TOKEN='replace-with-a-long-random-token'
+export WEBSPEAK_RELAY_HOST='0.0.0.0'
+export WEBSPEAK_RELAY_PORT='39087'
+./runtime/node ./dist/index.js
+```
+
+Windows PowerShell:
+
+```powershell
+$env:WEBSPEAK_MODE = "relay"
+$env:WEBSPEAK_RELAY_TOKEN = "replace-with-a-long-random-token"
+$env:WEBSPEAK_RELAY_HOST = "0.0.0.0"
+$env:WEBSPEAK_RELAY_PORT = "39087"
+.\runtime\node.exe .\dist\index.js
+```
+
+##### 2.3 Run with Docker
 
 ```bash
 docker run -d --name webspeak-relay --restart unless-stopped --network host \
@@ -428,7 +523,7 @@ docker run -d --name webspeak-relay --restart unless-stopped --network host \
 
 Allow the relay host's UDP listen port (default `39087`). The relay blocks explicitly entered loopback, private, and reserved targets by default. Only set `WEBSPEAK_RELAY_ALLOW_PRIVATE=true` when a trusted internal deployment deliberately needs those targets.
 
-**Enable it in WebSpeak:**
+##### 2.4 Enable it in the WebSpeak gateway
 
 1. Open **Administration → Servers → Relay server** and add one or more nodes.
 2. Set each node's display name, endpoint (for example `relay.example.com#39087`), and matching token, then save.
@@ -436,7 +531,9 @@ Allow the relay host's UDP listen port (default `39087`). The relay blocks expli
 
 Disable and save the relay configuration to remove the option from the welcome page. Environment variables do not replace the public gateway configuration saved in the administration console.
 
-#### Dependencies and attribution
+<a id="en-advanced-dependencies"></a>
+
+#### 3. Dependencies and attribution
 
 - **Relay service:** built into WebSpeak with Node.js built-ins (`node:dgram`, `node:crypto`, `node:dns/promises`, and `node:net`); it does not use GOST, sing-box, or another proxy framework.
 - **WebRTC:** uses [werift](https://github.com/shinyoshiaki/werift-webrtc) `0.24.4`, whose upstream project is licensed under MIT.
@@ -612,7 +709,9 @@ Diese Screenshots stammen vom Shanghai-Testknoten und zeigen die Willkommensseit
 
 Diese Funktionen sind optional. Ohne sie arbeitet WebSpeak weiterhin mit dem kompatiblen Sprachtransport. Die Einstellungen befinden sich unter **Administration → Server** und gelten für neue Verbindungen.
 
-#### WebRTC-Sprache mit niedriger Latenz
+<a id="de-webrtc"></a>
+
+#### 1. WebRTC-Sprache mit niedriger Latenz
 
 WebRTC verwendet für Browser-Sprache einen Echtzeit-Medienpfad und ermöglicht außerdem Desktop-Begleitton. Der aktuelle WebSpeak-Gateway stellt WebRTC selbst bereit; ein zusätzlicher Medienserver ist nicht erforderlich.
 
@@ -623,15 +722,22 @@ WebRTC verwendet für Browser-Sprache einen Echtzeit-Medienpfad und ermöglicht 
 
 Der Portbereich ist bei aktiviertem WebRTC gesperrt. Zum Ändern WebRTC zuerst deaktivieren und speichern, danach Firewall-Regeln anpassen. Für öffentliche Bereitstellungen ist außerdem HTTPS für Mikrofon- und Fenster-Audio-Berechtigungen erforderlich.
 
-#### Relay-Server / Beschleunigung
+<a id="de-relay"></a>
+
+#### 2. Relay-Modus
 
 Ein Relay hilft, wenn ein TeamSpeak-Server Verbindungen aus anderen Regionen ablehnt oder der direkte Weg instabil ist. Es ist kein VPN, sondern leitet nur den TeamSpeak-UDP-Verkehr der aktuellen WebSpeak-Sitzung weiter.
 
-**Relay-Modus starten:**
+##### 2.1 Aus dem Quellcode starten
 
 Der Relay-Modus ist eine dedizierte WebSpeak-Weiterleitungsinstanz: Er stellt keine Willkommensseite und keine Administrationskonsole bereit und akzeptiert keine direkten Benutzersitzungen. Er akzeptiert nur Gateway-Sitzungen mit passendem Relay-Token. Ein zufälliges Token mit mindestens 16 Zeichen verwenden und dasselbe Token im Relay sowie in der WebSpeak-Administrationskonsole eintragen:
 
 ```bash
+git clone --depth 1 https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak.git
+cd WebSpeak-client-for-TeamSpeak
+npm ci --ignore-scripts
+npm run prepare:sdk
+npm run build
 WEBSPEAK_MODE=relay \
 WEBSPEAK_RELAY_TOKEN='replace-with-a-long-random-token' \
 WEBSPEAK_RELAY_HOST='0.0.0.0' \
@@ -639,7 +745,42 @@ WEBSPEAK_RELAY_PORT='39087' \
 node dist/index.js
 ```
 
+Unter Windows PowerShell die Variablen vor dem Start setzen:
+
+```powershell
+$env:WEBSPEAK_MODE = "relay"
+$env:WEBSPEAK_RELAY_TOKEN = "replace-with-a-long-random-token"
+$env:WEBSPEAK_RELAY_HOST = "0.0.0.0"
+$env:WEBSPEAK_RELAY_PORT = "39087"
+node .\dist\index.js
+```
+
+##### 2.2 Aus einem Release-Paket starten
+
+Das Windows-x64- oder Linux-x64-Paket aus den [Releases](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/latest) herunterladen und entpacken:
+
+```bash
+# Linux
+export WEBSPEAK_MODE=relay
+export WEBSPEAK_RELAY_TOKEN='replace-with-a-long-random-token'
+export WEBSPEAK_RELAY_HOST='0.0.0.0'
+export WEBSPEAK_RELAY_PORT='39087'
+./runtime/node ./dist/index.js
+```
+
+Windows PowerShell:
+
+```powershell
+$env:WEBSPEAK_MODE = "relay"
+$env:WEBSPEAK_RELAY_TOKEN = "replace-with-a-long-random-token"
+$env:WEBSPEAK_RELAY_HOST = "0.0.0.0"
+$env:WEBSPEAK_RELAY_PORT = "39087"
+.\runtime\node.exe .\dist\index.js
+```
+
 Das UDP-Listening-Port des Relay-Hosts freigeben (Standard `39087`). Explizit eingetragene Loopback-, private und reservierte Ziele werden standardmäßig abgelehnt. `WEBSPEAK_RELAY_ALLOW_PRIVATE=true` nur in einer vertrauenswürdigen internen Umgebung setzen, wenn solche Ziele absichtlich benötigt werden.
+
+##### 2.3 Mit Docker starten
 
 Für Docker denselben veröffentlichten WebSpeak-Container im Relay-Modus starten:
 
@@ -651,7 +792,7 @@ docker run -d --name webspeak-relay --restart unless-stopped --network host \
   ghcr.io/echosixhiya/webspeak:latest
 ```
 
-**In WebSpeak aktivieren:**
+##### 2.4 Im WebSpeak-Gateway aktivieren
 
 1. **Administration → Server → Relay-Server** öffnen und einen oder mehrere Knoten hinzufügen.
 2. Für jeden Knoten Anzeigenamen, Endpunkt (zum Beispiel `relay.example.com#39087`) und passendes Token eintragen und speichern.
@@ -659,7 +800,9 @@ docker run -d --name webspeak-relay --restart unless-stopped --network host \
 
 Relay deaktivieren und speichern, um die Option von der Willkommensseite zu entfernen. Umgebungsvariablen ersetzen nicht die im Administrationsbereich gespeicherte öffentliche Gateway-Konfiguration.
 
-#### Abhängigkeiten und Hinweise zur Herkunft
+<a id="de-advanced-dependencies"></a>
+
+#### 3. Abhängigkeiten und Hinweise zur Herkunft
 
 - **Relay-Dienst:** Bestandteil von WebSpeak und mit Node.js-Standardmodulen (`node:dgram`, `node:crypto`, `node:dns/promises`, `node:net`) implementiert; GOST, sing-box oder ein anderes Proxy-Framework wird nicht verwendet.
 - **WebRTC:** verwendet [werift](https://github.com/shinyoshiaki/werift-webrtc) `0.24.4`; das Upstream-Projekt steht unter MIT-Lizenz.
