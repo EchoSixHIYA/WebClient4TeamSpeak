@@ -145,10 +145,6 @@ export class AdminService {
     };
   }
 
-  hasAccelerationRelaySettings(): boolean {
-    return this.database.getSettings().relayConfigured;
-  }
-
   getAccelerationRelayOptions(): AccelerationRelayOptions | undefined {
     const settings = this.database.getSettings();
     if (!settings.relayConfigured || !settings.relayEnabled || !settings.relayHost || !settings.relayTokenEncrypted) return undefined;

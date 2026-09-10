@@ -8,8 +8,6 @@ import { WebSpeakDatabase } from "./persistence/database.js";
 import { loadOrCreateMasterSecret } from "./security/master-secret.js";
 import { AdminService } from "./admin/admin-service.js";
 import { JoinTicketStore } from "./server/join-ticket.js";
-import { parseTeamSpeakTarget } from "./domain/teamspeak-target.js";
-import { DEFAULT_ACCELERATION_RELAY_PORT, type AccelerationRelayOptions } from "./server/acceleration-relay.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, "..");
@@ -51,10 +49,12 @@ async function main() {
     voiceBridgeOptions: {
       joinTickets,
       webRtc: () => adminService.getWebRtcAudioOptions(),
-      acceleration: () => adminService.hasAccelerationRelaySettings() ? adminService.getAccelerationRelayOptions() : readAccelerationRelayOptions(),
-      accelerationName: () => adminService.hasAccelerationRelaySettings()
-        ? adminService.getAccelerationRelayName()
-        : readAccelerationRelayOptions() ? "中继加速" : undefined,
+      // The public gateway only uses the relay configuration explicitly
+      // saved in the admin console. Environment variables belong to the
+      // standalone relay process and must never make the relay option appear
+      // in the visitor UI after an administrator disables it.
+      acceleration: () => adminService.getAccelerationRelayOptions(),
+      accelerationName: () => adminService.getAccelerationRelayName(),
     },
     adminService,
     logger,
@@ -71,23 +71,6 @@ async function main() {
   };
   process.on("SIGINT", () => shutdown("SIGINT"));
   process.on("SIGTERM", () => shutdown("SIGTERM"));
-}
-
-function readAccelerationRelayOptions(): AccelerationRelayOptions | undefined {
-  const relay = process.env.WEBSPEAK_ACCELERATION_RELAY?.trim();
-  const token = process.env.WEBSPEAK_ACCELERATION_RELAY_TOKEN?.trim();
-  if (!relay && !token) return undefined;
-  if (!relay || !token) {
-    console.warn("WEBSPEAK_ACCELERATION_RELAY and WEBSPEAK_ACCELERATION_RELAY_TOKEN must be configured together");
-    return undefined;
-  }
-  try {
-    const endpoint = parseTeamSpeakTarget(relay, DEFAULT_ACCELERATION_RELAY_PORT);
-    return { relayHost: endpoint.host, relayPort: endpoint.port, token };
-  } catch {
-    console.warn("WEBSPEAK_ACCELERATION_RELAY is invalid; acceleration is disabled");
-    return undefined;
-  }
 }
 
 function readPackageVersion(): string {
