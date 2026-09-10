@@ -224,7 +224,7 @@ docker run -d --name webspeak-relay --restart unless-stopped --network host \
 
 | 版本 | 日期 | 摘要 |
 | --- | --- | --- |
-| 0.2.0-preview | 2026-09-10 | 补充 WebRTC、中继服务器和高级扩展功能的配置教程，明确依赖与组件归属。 |
+| 0.2.0-preview | 2026-09-10 | 补充 WebRTC、中继服务器和高级扩展功能的配置教程，明确依赖与组件归属；优化管理员历史连接日志的原因显示。 |
 | [v0.1.8](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.8) | 2026-09-08 | 简化 Docker 部署并支持连接同机 TeamSpeak；开放模式加强目标校验；SDK 增加 15 秒连接超时；网络性能面板改为每 3 秒持续监测。 |
 | [v0.1.7](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.7) | 2026-09-06 | 增加德语支持、Telegram 群组入口、网络性能面板和丢包率测试；管理员测试不再创建临时客户端，并修复语言菜单留白与伴奏音量波动。 |
 | [v0.1.6](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.6) | 2026-09-04 | 新增桌面端伴奏、身份保持提醒和网站图标，并修复 WebRTC 下的成员独立音量。 |
@@ -446,7 +446,7 @@ Disable and save the relay configuration to remove the option from the welcome p
 
 | Version | Date | Summary |
 | --- | --- | --- |
-| 0.2.0-preview | 2026-09-10 | Added configuration guides for WebRTC, relay servers, and advanced extensions, with dependency and component attribution. |
+| 0.2.0-preview | 2026-09-10 | Added configuration guides for WebRTC, relay servers, and advanced extensions, with dependency and component attribution; improved reason reporting in administrator connection history. |
 | [v0.1.8](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.8) | 2026-09-08 | Simplified Docker deployment for local TeamSpeak targets; hardened open-target validation; added a 15-second SDK connection timeout; network metrics now refresh every 3 seconds. |
 | [v0.1.7](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.7) | 2026-09-06 | Added German support, a Telegram community link, network performance and packet-loss checks; admin tests no longer create temporary clients, and language-menu spacing and accompaniment volume fluctuations were fixed. |
 | [v0.1.6](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.6) | 2026-09-04 | Added desktop accompaniment, remembered-identity guidance, and the site icon; fixed per-member volume under WebRTC. |
@@ -659,7 +659,7 @@ Relay deaktivieren und speichern, um die Option von der Willkommensseite zu entf
 
 | Version | Datum | Zusammenfassung |
 | --- | --- | --- |
-| 0.2.0-preview | 2026-09-10 | Konfigurationsanleitungen für WebRTC, Relay-Server und erweiterte Funktionen ergänzt sowie Abhängigkeiten und Komponenten eindeutig zugeordnet. |
+| 0.2.0-preview | 2026-09-10 | Konfigurationsanleitungen für WebRTC, Relay-Server und erweiterte Funktionen ergänzt, Abhängigkeiten und Komponenten eindeutig zugeordnet sowie die Ursachendarstellung in der Verbindungsverlauf-Ansicht verbessert. |
 | [v0.1.8](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.8) | 2026-09-08 | Docker-Bereitstellung für lokale TeamSpeak-Ziele vereinfacht; Zielprüfung im offenen Modus gehärtet; 15-Sekunden-Timeout für SDK-Verbindungen ergänzt; Netzwerkmetriken werden alle 3 Sekunden aktualisiert. |
 | [v0.1.7](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.7) | 2026-09-06 | Deutsche Oberfläche, Telegram-Link sowie Netzwerk- und Paketverlustprüfung hinzugefügt; Admin-Tests erzeugen keine temporären Clients mehr, außerdem wurden Sprachmenü-Leerraum und Begleitton-Schwankungen behoben. |
 | [v0.1.6](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.6) | 2026-09-04 | Desktop-Begleitton, Hinweise zur Identität und Website-Symbol hinzugefügt; individuelle Lautstärke unter WebRTC korrigiert. |
