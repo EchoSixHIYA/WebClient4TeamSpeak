@@ -40,6 +40,6 @@ USER node
 VOLUME ["/data"]
 EXPOSE 3040/tcp 39087/udp 40000-40099/udp
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD-SHELL if [ "$WEBSPEAK_MODE" = "relay" ]; then node -e "process.exit(0)"; else node -e "fetch('http://127.0.0.1:3040/health').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))"; fi
+  CMD ["sh", "-c", "if [ \"$WEBSPEAK_MODE\" = \"relay\" ]; then node -e \"process.exit(0)\"; else node -e \"fetch('http://127.0.0.1:3040/health').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))\"; fi"]
 
 CMD ["node", "dist/index.js"]
