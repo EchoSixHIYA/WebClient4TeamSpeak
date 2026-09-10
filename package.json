@@ -14,7 +14,9 @@
     "start": "node dist/index.js",
     "web:dev": "cd web && npx vite --host",
     "web:build": "cd web && npx vite build",
-    "prepare:sdk": "node scripts/prepare-sdk.mjs"
+    "prepare:sdk": "node scripts/prepare-sdk.mjs",
+    "acceleration:poc": "node scripts/acceleration-poc/smoke.mjs",
+    "acceleration:sdk-smoke": "node scripts/acceleration-poc/sdk-smoke.mjs"
   },
   "dependencies": {
     "@discordjs/opus": "^0.10.0",
