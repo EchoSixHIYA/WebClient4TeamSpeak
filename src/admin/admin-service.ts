@@ -189,7 +189,7 @@ export class AdminService {
     };
   }
 
-  async testConnection(targetText: string, password: string, persistResult: boolean): Promise<{ ok: boolean; latencyMs: number; serverName: string | null; requiresPassword: boolean; packetLossPercent?: number; attempts?: number; successfulAttempts?: number; errorCode?: string }> {
+  async testConnection(targetText: string, password: string, persistResult: boolean): Promise<{ ok: boolean; checkType: "network" | "protocol"; passwordVerified: boolean; latencyMs: number; serverName: string | null; requiresPassword: boolean; packetLossPercent?: number; attempts?: number; successfulAttempts?: number; errorCode?: string }> {
     let target: TeamSpeakTarget;
     try {
       target = parseTeamSpeakTarget(targetText);
@@ -205,6 +205,8 @@ export class AdminService {
         const result = await pingTeamSpeakHost(target.host, { attempts: 4 });
         const publicResult = {
           ok: result.ok,
+          checkType: "network" as const,
+          passwordVerified: false,
           latencyMs: result.latencyMs ?? 0,
           serverName: null,
           requiresPassword: false,
@@ -229,7 +231,7 @@ export class AdminService {
         this.database.addAudit("CONNECTION_TEST_SUCCEEDED", { protocol: result.protocol, latencyMs: result.latencyMs });
       }
       const { protocol: _protocol, ...publicResult } = result;
-      return publicResult;
+      return { ...publicResult, checkType: "protocol", passwordVerified: true };
     } catch (error: unknown) {
       const probeError = error instanceof TeamSpeakProbeError
         ? error

@@ -487,7 +487,9 @@ export function readConnectionHistory(logFile: string | undefined, limit: number
         : current.connectedAt
           ? Math.max(0, Math.floor((Date.parse(log.timestamp) - Date.parse(current.connectedAt)) / 1000))
           : null;
-      current.reason = typeof log.raw.reason === "string" ? log.raw.reason : null;
+      current.reason = typeof log.raw.failureCode === "string"
+        ? log.raw.failureCode
+        : typeof log.raw.reason === "string" ? log.raw.reason : null;
       current.status = current.connectedAt ? "disconnected" : "failed";
     }
     records.set(entryId, current);

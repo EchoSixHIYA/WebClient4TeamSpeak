@@ -272,6 +272,22 @@
       </section>
     </div>
 
+    <!-- TeamSpeak server password modal -->
+    <div v-if="serverPasswordDialog.open" class="modal-backdrop channel-password-backdrop" @click.self="cancelServerPassword">
+      <section class="channel-password-modal server-password-modal" role="dialog" aria-modal="true" :aria-labelledby="'server-password-title'" @click.stop>
+        <button type="button" class="qq-modal-close" :aria-label="t('close')" :title="t('close')" @click="cancelServerPassword"><Icon name="close" :size="19" /></button>
+        <div class="channel-password-icon"><Icon name="lock" :size="22" /></div>
+        <span class="card-kicker">{{ t('serverPasswordPrompt') }}</span>
+        <h2 id="server-password-title">{{ t('serverPasswordTitle') }}</h2>
+        <p>{{ serverPasswordDialog.errorCode === 'INVALID_SERVER_PASSWORD' ? t('serverPasswordInvalidLead') : t('serverPasswordRequiredLead') }}</p>
+        <form class="channel-password-form" @submit.prevent="submitServerPassword">
+          <label class="field-label" for="retry-server-password-input">{{ t('serverPasswordPrompt') }}</label>
+          <div class="field-wrap"><Icon name="lock" :size="17" /><input id="retry-server-password-input" v-model="serverPasswordDialog.password" type="password" autocomplete="current-password" :placeholder="t('serverPasswordRetryPlaceholder')" autofocus /></div>
+          <div class="channel-password-actions"><button type="button" class="text-button" @click="cancelServerPassword">{{ t('channelPasswordCancel') }}</button><button type="submit" class="primary-button channel-password-submit" :disabled="!serverPasswordDialog.password"><span>{{ t('serverPasswordRetry') }}</span><Icon name="chevron-right" :size="17" /></button></div>
+        </form>
+      </section>
+    </div>
+
     <!-- Audio settings modal -->
     <div v-if="settingsOpen" class="modal-backdrop" @click.self="settingsOpen = false">
       <section class="settings-modal" role="dialog" aria-modal="true" :aria-labelledby="'settings-title'">
@@ -390,6 +406,7 @@ const messageDraft = ref("");
 const selectedChannelId = ref("");
 const settingsOpen = ref(false);
 const channelPasswordDialog = reactive({ open: false, channelId: "", password: "", error: "", submitting: false });
+const serverPasswordDialog = reactive({ open: false, password: "", errorCode: "" });
 const qqModalOpen = ref(false);
 const qqJoinUrl = "http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=yhumUMDD9PmyYFWdXWUb_x7hM5trFQY8&authKey=Pw3HBGT7GwMinTQnuFGfnpf0aRSzXOJKcAiujVP1%2BXMpjheAKrncTRivicBJxpjV&noverify=0&group_code=869500475";
 const audioSettingsError = ref("");
@@ -515,6 +532,12 @@ const translations: Record<string, Record<string, string>> = {
     accompanimentUnsupported: "当前浏览器不支持伴奏共享",
     serverPassword: "服务器密码",
     optionalPassword: "没有密码可留空",
+    serverPasswordTitle: "服务器需要密码",
+    serverPasswordPrompt: "输入服务器密码",
+    serverPasswordRequiredLead: "该服务器需要密码，输入密码后重试。",
+    serverPasswordInvalidLead: "服务器密码不正确，请重新输入后重试。",
+    serverPasswordRetry: "输入密码并重试",
+    serverPasswordRetryPlaceholder: "请输入服务器密码",
     switchChannel: "切换频道",
     searchChannels: "搜索频道",
     voiceChannels: "语音频道",
@@ -773,6 +796,12 @@ const translations: Record<string, Record<string, string>> = {
     accompanimentUnsupported: "This browser does not support accompaniment sharing",
     serverPassword: "Server password",
     optionalPassword: "Leave blank if not required",
+    serverPasswordTitle: "Server password required",
+    serverPasswordPrompt: "Enter server password",
+    serverPasswordRequiredLead: "This TeamSpeak server requires a password. Enter it and try again.",
+    serverPasswordInvalidLead: "The server password was rejected. Enter it again and retry.",
+    serverPasswordRetry: "Enter password and retry",
+    serverPasswordRetryPlaceholder: "Enter the server password",
     switchChannel: "Switch channel",
     searchChannels: "Search channels",
     voiceChannels: "Voice channels",
@@ -1034,6 +1063,12 @@ translations.de = {
   accompanimentUnsupported: "Dieser Browser unterstützt das Teilen von Begleitung nicht.",
   serverPassword: "Serverpasswort",
   optionalPassword: "Leer lassen, wenn kein Passwort erforderlich ist",
+  serverPasswordTitle: "Serverpasswort erforderlich",
+  serverPasswordPrompt: "Serverpasswort eingeben",
+  serverPasswordRequiredLead: "Dieser TeamSpeak-Server benötigt ein Passwort. Gib es ein und versuche es erneut.",
+  serverPasswordInvalidLead: "Das Serverpasswort wurde abgelehnt. Gib es erneut ein und versuche es noch einmal.",
+  serverPasswordRetry: "Passwort eingeben und erneut versuchen",
+  serverPasswordRetryPlaceholder: "Serverpasswort eingeben",
   switchChannel: "Kanal wechseln",
   searchChannels: "Kanäle suchen",
   voiceChannels: "Sprachkanäle",
@@ -1240,6 +1275,13 @@ function localizedMessage(message: string) {
     "此 TeamSpeak 身份已在另一个浏览器页面使用，请关闭另一条连接或取消“保持身份”后重试": "This TeamSpeak identity is already used by another browser page. Close that connection or clear ‘Remember identity’ and try again",
     "TeamSpeak 服务器地址无效": "The TeamSpeak server address is invalid",
     "TeamSpeak 服务器连接失败": "Could not connect to the TeamSpeak server",
+    "无法到达 TeamSpeak 服务器，请检查网络或地址": "The TeamSpeak server is unreachable. Check the network or address",
+    "连接 TeamSpeak 超时，请检查网络或服务器状态": "The TeamSpeak connection timed out. Check the network or server status",
+    "该服务器需要密码，请输入密码后重试": "This server requires a password. Enter it and try again",
+    "服务器密码错误，请重新输入": "The server password is incorrect. Enter it again",
+    "TeamSpeak 协议协商失败": "TeamSpeak protocol negotiation failed",
+    "TeamSpeak 服务器拒绝了连接": "The TeamSpeak server rejected the connection",
+    "TeamSpeak 连接失败，请检查地址、网络或服务器状态": "TeamSpeak connection failed. Check the address, network, or server status",
     "服务器当前已满，请稍后重试": "The server is full. Try again shortly",
     "WebSpeak 尚未配置 TeamSpeak 目标。": "The WebSpeak TeamSpeak target has not been configured",
     "此 TeamSpeak 服务器地址不允许连接": "This TeamSpeak server address is not allowed",
@@ -1399,6 +1441,14 @@ watch(() => voiceState.errorCode, (code) => {
   channelPasswordDialog.submitting = false;
   clearError();
   void nextTick(() => document.getElementById("channel-password-input")?.focus());
+});
+watch(() => voiceState.errorCode, (code) => {
+  if (code !== "SERVER_PASSWORD_REQUIRED" && code !== "INVALID_SERVER_PASSWORD") return;
+  serverPasswordDialog.open = true;
+  serverPasswordDialog.password = "";
+  serverPasswordDialog.errorCode = code;
+  clearError();
+  void nextTick(() => document.getElementById("retry-server-password-input")?.focus());
 });
 watch(() => voiceState.channelSwitchedChannelId, (channelId) => {
   if (!channelPasswordDialog.open || !channelId || channelId !== channelPasswordDialog.channelId) return;
@@ -1568,13 +1618,32 @@ function doConnect() {
     serverPort.value = serverPort.value.trim();
   }
   selectedChannelId.value = "";
-  connect(currentServerTarget(), channel.value.trim(), nickname.value, accessMode.value === "open" ? serverPassword.value : "", rememberIdentity.value ? identityMaterial.value : "", rememberIdentity.value, inviteToken, accelerationEnabled.value);
+  // Keep the password field available for a retry even when the target is
+  // administrator-managed. The gateway still controls the target in fixed
+  // mode and only accepts a non-empty retry password for that target.
+  connect(currentServerTarget(), channel.value.trim(), nickname.value, serverPassword.value, rememberIdentity.value ? identityMaterial.value : "", rememberIdentity.value, inviteToken, accelerationEnabled.value);
 }
 
 function doDisconnect() {
   disconnect();
   selectedChannelId.value = "";
   showToast(t("leftToast"));
+}
+
+function submitServerPassword() {
+  if (!serverPasswordDialog.open || !serverPasswordDialog.password) return;
+  serverPassword.value = serverPasswordDialog.password;
+  serverPasswordDialog.open = false;
+  serverPasswordDialog.password = "";
+  serverPasswordDialog.errorCode = "";
+  doConnect();
+}
+
+function cancelServerPassword() {
+  serverPasswordDialog.open = false;
+  serverPasswordDialog.password = "";
+  serverPasswordDialog.errorCode = "";
+  clearError();
 }
 
 function selectChannel(item: TreeChannel) {

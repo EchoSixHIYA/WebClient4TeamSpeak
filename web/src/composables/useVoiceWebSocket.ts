@@ -1153,7 +1153,10 @@ export function useVoiceWebSocket() {
       // Prefer the close code over the generic WebSocket error event. The
       // gateway uses a dedicated code when a remembered identity is already
       // active in another browser page.
-      if (event.code !== 1000 && !state.reconnectFailed) state.error = closeReason(event.code);
+      if (event.code !== 1000 && !state.reconnectFailed) {
+        state.errorCode = closeErrorCode(event.code, event.reason);
+        state.error = closeReason(event.code, event.reason);
+      }
       stopWebRtcTransport();
       stopMicrophone();
       whisperTargetIds.clear();
@@ -1174,7 +1177,33 @@ export function useVoiceWebSocket() {
     return "连接服务器失败，请检查邀请链接或服务器状态";
   }
 
-  function closeReason(code: number): string {
+  function closeErrorCode(code: number, reason = ""): string {
+    const known = new Set(["INVALID_TARGET", "UNREACHABLE", "TIMEOUT", "SERVER_PASSWORD_REQUIRED", "INVALID_SERVER_PASSWORD", "PROTOCOL_NEGOTIATION_FAILED", "SERVER_REJECTED", "CONNECTION_FAILED"]);
+    if (known.has(reason)) return reason;
+    if (code === 4002) return "INVALID_TARGET";
+    if (code === 4004) return "SERVER_REJECTED";
+    if (code === 4005) return "IDENTITY_IN_USE";
+    return "CONNECTION_FAILED";
+  }
+
+  function connectionFailureMessage(code: string): string {
+    const messages: Record<string, string> = {
+      INVALID_TARGET: "TeamSpeak 服务器地址无效",
+      UNREACHABLE: "无法到达 TeamSpeak 服务器，请检查网络或地址",
+      TIMEOUT: "连接 TeamSpeak 超时，请检查网络或服务器状态",
+      SERVER_PASSWORD_REQUIRED: "该服务器需要密码，请输入密码后重试",
+      INVALID_SERVER_PASSWORD: "服务器密码错误，请重新输入",
+      PROTOCOL_NEGOTIATION_FAILED: "TeamSpeak 协议协商失败",
+      SERVER_REJECTED: "TeamSpeak 服务器拒绝了连接",
+      IDENTITY_IN_USE: "此 TeamSpeak 身份已在另一个浏览器页面使用，请关闭另一条连接或取消“保持身份”后重试",
+      CONNECTION_FAILED: "TeamSpeak 连接失败，请检查地址、网络或服务器状态",
+    };
+    return messages[code] ?? "连接已断开";
+  }
+
+  function closeReason(code: number, reason = ""): string {
+    const failureCode = closeErrorCode(code, reason);
+    if (failureCode !== "CONNECTION_FAILED") return connectionFailureMessage(failureCode);
     if (code === 4002) return "TeamSpeak 服务器地址无效";
     if (code === 4003) return "TeamSpeak 服务器连接失败";
     if (code === 4004) return "服务器当前已满，请稍后重试";
@@ -1371,7 +1400,8 @@ export function useVoiceWebSocket() {
         state.connecting = false;
         state.reconnecting = false;
         state.reconnectFailed = true;
-        state.error = "连接已中断，无法自动恢复";
+        state.errorCode = typeof msg.code === "string" ? msg.code : "CONNECTION_FAILED";
+        state.error = connectionFailureMessage(state.errorCode);
         whisperTargetIds.clear();
         whisperActive.value = false;
         break;
