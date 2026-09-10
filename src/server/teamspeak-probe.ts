@@ -8,6 +8,7 @@ export type ProbeErrorCode =
   | "HOST_NOT_FOUND"
   | "UNREACHABLE"
   | "TIMEOUT"
+  | "PASSWORD_REQUIRED"
   | "INVALID_PASSWORD"
   | "PROTOCOL_NEGOTIATION_FAILED"
   | "SERVER_REJECTED"
@@ -82,7 +83,7 @@ export async function probeTeamSpeak(
       requiresPassword: Boolean(password),
     };
   } catch (error: unknown) {
-    throw toProbeError(error);
+    throw toProbeError(error, password);
   } finally {
     try {
       await adapter.disconnect();
@@ -92,7 +93,7 @@ export async function probeTeamSpeak(
   }
 }
 
-export function toProbeError(error: unknown): TeamSpeakProbeError {
+export function toProbeError(error: unknown, password = ""): TeamSpeakProbeError {
   if (error instanceof TeamSpeakProbeError) return error;
   const normalized = normalizeTeamSpeakError(error);
   const raw = `${extractErrorText(error)} ${extractErrorText(normalized.cause)}`.toLocaleLowerCase();
@@ -103,7 +104,7 @@ export function toProbeError(error: unknown): TeamSpeakProbeError {
     invalid_target: "INTERNAL_ERROR",
     unreachable: "UNREACHABLE",
     timeout: "TIMEOUT",
-    authentication_failed: "INVALID_PASSWORD",
+    authentication_failed: password.trim() ? "INVALID_PASSWORD" : "PASSWORD_REQUIRED",
     protocol_negotiation_failed: "PROTOCOL_NEGOTIATION_FAILED",
     server_full: "SERVER_REJECTED",
     unknown: "SERVER_REJECTED",
@@ -113,6 +114,6 @@ export function toProbeError(error: unknown): TeamSpeakProbeError {
 
 function extractErrorText(error: unknown): string {
   if (!error || typeof error !== "object") return String(error ?? "");
-  const candidate = error as { code?: unknown; message?: unknown };
-  return `${typeof candidate.code === "string" ? candidate.code : ""} ${typeof candidate.message === "string" ? candidate.message : ""}`;
+  const candidate = error as { code?: unknown; id?: unknown; serverMessage?: unknown; message?: unknown };
+  return `${typeof candidate.code === "string" ? candidate.code : ""} ${typeof candidate.id === "string" || typeof candidate.id === "number" ? candidate.id : ""} ${typeof candidate.serverMessage === "string" ? candidate.serverMessage : ""} ${typeof candidate.message === "string" ? candidate.message : ""}`;
 }

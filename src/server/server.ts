@@ -128,6 +128,12 @@ export function createWebServer(options: WebServerOptions): WebServer {
           // not a trust boundary and must not bypass SSRF protection.
           target = await resolveSafeOpenTarget(target);
           if (!isDefault) serverPassword = typeof body.serverPassword === "string" ? body.serverPassword.slice(0, 512) : "";
+          else if (typeof body.serverPassword === "string" && body.serverPassword.trim()) serverPassword = body.serverPassword.slice(0, 512);
+        } else if (policy.accessMode === "fixed" && typeof body.serverPassword === "string" && body.serverPassword.trim()) {
+          // The fixed target remains administrator-controlled, but a user may
+          // retry its server password after the gateway reports that one is
+          // required. The target itself is never taken from this request.
+          serverPassword = body.serverPassword.slice(0, 512);
         }
       } catch {
         response.status(400).json({ ok: false, code: "TARGET_NOT_ALLOWED" });

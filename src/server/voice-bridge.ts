@@ -5,7 +5,7 @@ import { identityFromString } from "@echosixhiya/teamspeak-client";
 import { DirectorySynchronizer } from "./directory-sync.js";
 import { TSClient, type TSDirectorySnapshot, type TSVoiceData } from "./ts-client.js";
 import type { Logger as LoggerType } from "../logger.js";
-import { normalizeTeamSpeakError } from "../errors.js";
+import { clientConnectionFailureCode, normalizeTeamSpeakError } from "../errors.js";
 import { formatTeamSpeakTarget, teamSpeakTargetKey, type TeamSpeakTarget } from "../domain/teamspeak-target.js";
 import { JoinTicketStore, type JoinTicketPayload } from "./join-ticket.js";
 import { IdentityLeaseStore } from "./identity-lease.js";
@@ -137,6 +137,7 @@ interface WebClientEntry {
   audio: AudioFlowStats;
   webrtc: WebRtcAudioSession | null;
   lastLatencyProbeAt: number;
+  connectionFailureCode?: string;
 }
 
 export class VoiceBridge {
@@ -358,7 +359,9 @@ export class VoiceBridge {
         try {
           if (session.state !== "disconnecting" && session.state !== "idle") session.transition("failed");
         } catch { /* teardown below remains authoritative */ }
-        sendJson({ type: "reconnectFailed", code: normalized.code });
+        const failureCode = clientConnectionFailureCode(normalized, serverPassword);
+        entry!.connectionFailureCode = failureCode;
+        sendJson({ type: "reconnectFailed", code: failureCode });
         void this.teardown(entryId, "teamSpeak-connect-failed");
       };
 
@@ -412,12 +415,14 @@ export class VoiceBridge {
           sendInitialState();
         } catch (error: unknown) {
           const normalized = normalizeTeamSpeakError(error);
-          this.logger.error({ code: normalized.code, entryId, reconnect: isReconnect, attempt: reconnectAttempt }, "TS connect failed");
+          const failureCode = clientConnectionFailureCode(normalized, serverPassword);
+          entry!.connectionFailureCode = failureCode;
+          this.logger.error({ code: failureCode, normalizedCode: normalized.code, entryId, reconnect: isReconnect, attempt: reconnectAttempt }, "TS connect failed");
           if (!isReconnect) {
             try {
               if (session.state !== "disconnecting" && session.state !== "idle") session.transition("failed");
             } catch { /* teardown below remains authoritative */ }
-            if (ws.readyState === WebSocket.OPEN) ws.close(4003, normalized.code);
+            if (ws.readyState === WebSocket.OPEN) ws.close(4003, failureCode);
             void this.teardown(entryId, "teamSpeak-connect-failed");
             return;
           }
@@ -756,6 +761,7 @@ export class VoiceBridge {
       nickname: entry.nickname,
       target: formatTeamSpeakTarget(entry.target),
       reason,
+      ...(entry.connectionFailureCode ? { failureCode: entry.connectionFailureCode } : {}),
       durationSeconds: Math.max(0, Math.floor((Date.now() - entry.session.createdAt) / 1000)),
       audio: { ...entry.audio },
     }, "Client session torn down");
