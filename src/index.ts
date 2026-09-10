@@ -1,13 +1,7 @@
 import path from "node:path";
 import { existsSync, readFileSync, unlinkSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { createLogger } from "./logger.js";
-import { createWebServer } from "./server/server.js";
-import { APP_PORT } from "./constants.js";
-import { WebSpeakDatabase } from "./persistence/database.js";
-import { loadOrCreateMasterSecret } from "./security/master-secret.js";
-import { AdminService } from "./admin/admin-service.js";
-import { JoinTicketStore } from "./server/join-ticket.js";
+import { createAccelerationRelayServer } from "./server/acceleration-relay.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, "..");
@@ -21,6 +15,19 @@ const STATIC_DIR = path.join(ROOT_DIR, "web", "dist");
 const APP_VERSION = readPackageVersion();
 
 async function main() {
+  if (process.env.WEBSPEAK_MODE?.trim().toLowerCase() === "relay") {
+    await runRelayMode();
+    return;
+  }
+  const [{ createLogger }, { createWebServer }, { APP_PORT }, { WebSpeakDatabase }, { loadOrCreateMasterSecret }, { AdminService }, { JoinTicketStore }] = await Promise.all([
+    import("./logger.js"),
+    import("./server/server.js"),
+    import("./constants.js"),
+    import("./persistence/database.js"),
+    import("./security/master-secret.js"),
+    import("./admin/admin-service.js"),
+    import("./server/join-ticket.js"),
+  ]);
   const logger = createLogger(LOG_DIR);
   const database = new WebSpeakDatabase(path.join(DATA_DIR, "webspeak.db"));
   const masterSecret = loadOrCreateMasterSecret(path.join(DATA_DIR, "master.key"));
@@ -73,6 +80,22 @@ async function main() {
   process.on("SIGTERM", () => shutdown("SIGTERM"));
 }
 
+async function runRelayMode(): Promise<void> {
+  const token = (process.env.WEBSPEAK_RELAY_TOKEN || process.env.WEBSPEAK_ACCELERATION_RELAY_TOKEN)?.trim();
+  if (!token) throw new Error("WEBSPEAK_RELAY_TOKEN is required in relay mode");
+  const host = (process.env.WEBSPEAK_RELAY_HOST || process.env.WEBSPEAK_ACCELERATION_RELAY_HOST)?.trim() || "0.0.0.0";
+  const port = parsePort(process.env.WEBSPEAK_RELAY_PORT || process.env.WEBSPEAK_ACCELERATION_RELAY_PORT, 39087);
+  const allowPrivate = parseBoolean(process.env.WEBSPEAK_RELAY_ALLOW_PRIVATE || process.env.WEBSPEAK_ACCELERATION_RELAY_ALLOW_PRIVATE);
+  const server = await createAccelerationRelayServer({ host, port, token, allowPrivate });
+  console.log(`WebSpeak relay mode listening on ${server.host}:${server.port}`);
+  const shutdown = (): void => {
+    server.close();
+    process.exit(0);
+  };
+  process.once("SIGINT", shutdown);
+  process.once("SIGTERM", shutdown);
+}
+
 function readPackageVersion(): string {
   try {
     const packageJson = JSON.parse(readFileSync(path.join(ROOT_DIR, "package.json"), "utf8")) as { version?: unknown };
@@ -88,6 +111,16 @@ function removeObsoleteBootstrapFile(): void {
   } catch (error: unknown) {
     if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
   }
+}
+
+function parsePort(value: string | undefined, fallback: number): number {
+  const port = value ? Number(value) : fallback;
+  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invalid relay port");
+  return port;
+}
+
+function parseBoolean(value: string | undefined): boolean {
+  return value === "1" || value?.toLowerCase() === "true";
 }
 
 main().catch((err) => {

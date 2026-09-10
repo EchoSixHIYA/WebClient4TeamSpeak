@@ -41,7 +41,7 @@
               <label class="field-label" for="server-port"><span>{{ t('serverPort') }}</span><div class="field-wrap"><Icon name="hash" :size="17" /><input id="server-port" v-model="serverPort" inputmode="numeric" type="text" maxlength="5" :placeholder="t('serverPortPlaceholder')" /></div></label>
             </div>
             <p v-if="accessMode === 'open'" class="field-hint">{{ t('serverAddressHint') }}</p>
-            <label v-if="accelerationAvailable" class="acceleration-choice"><input v-model="accelerationEnabled" type="checkbox" /><span><strong>{{ accelerationDisplayName }}</strong><small>{{ t('relayAccelerationHint') }}</small></span></label>
+            <div v-if="accelerationAvailable" class="acceleration-choice"><div class="acceleration-copy"><strong>{{ t('relayAcceleration') }}</strong><small>{{ t('relayAccelerationHint') }}</small></div><select v-model="accelerationRelayId" :aria-label="t('relayAcceleration')"><option value="">{{ t('directConnection') }}</option><option v-for="relay in accelerationRelays" :key="relay.id" :value="relay.id">{{ relay.name }}</option></select></div>
             <div v-if="accessMode === 'open' && (favoriteServers.length || recentServers.length)" class="local-servers">
               <div v-if="favoriteServers.length" class="local-server-group"><span>{{ t('favoriteServers') }}</span><button v-for="favorite in favoriteServers" :key="favorite.id" type="button" @click="selectLocalServer(favorite.address, favorite.nickname)">{{ favorite.label }}</button></div>
               <div v-if="recentServers.length" class="local-server-group"><span>{{ t('recentServers') }}</span><button v-for="recent in recentServers" :key="recent.id" type="button" @click="selectLocalServer(recent.address, recent.nickname)">{{ recent.address }}</button></div>
@@ -396,9 +396,9 @@ const siteName = ref("WebSpeak");
 const welcomeTextZh = ref("");
 const welcomeTextEn = ref("");
 const appVersion = ref("0.2.0-preview");
-const accelerationAvailable = ref(false);
-const accelerationName = ref("");
-const accelerationEnabled = ref(false);
+const accelerationRelays = ref<Array<{ id: string; name: string }>>([]);
+const accelerationRelayId = ref("");
+const accelerationAvailable = computed(() => accelerationRelays.value.length > 0);
 const browserError = ref("");
 const serverConfigLoading = ref(true);
 const memberQuery = ref("");
@@ -439,7 +439,6 @@ const themeMode = ref<ThemeMode>(getStoredTheme());
 const themeIcon = computed(() => isDarkTheme(themeMode.value) ? "sun" : "moon");
 const themeLabel = computed(() => isDarkTheme(themeMode.value) ? t("switchToLightTheme") : t("switchToDarkTheme"));
 const localizedWelcomeText = computed(() => (language.value === "en" ? welcomeTextEn.value : welcomeTextZh.value) || t("joinDescription"));
-const accelerationDisplayName = computed(() => accelerationName.value || (language.value === "zh" ? "中继加速" : language.value === "de" ? "Relay-Beschleunigung" : "Relay acceleration"));
 applyTheme(themeMode.value);
 const translations: Record<string, Record<string, string>> = {
   zh: {
@@ -476,7 +475,9 @@ const translations: Record<string, Record<string, string>> = {
     serverPort: "语音端口",
     serverPortPlaceholder: "9987",
     serverAddressHint: "这是网关服务器连接的 TeamSpeak 地址和端口，不是浏览器直接连接地址。",
-    relayAccelerationHint: "通过已配置的中继服务器转发，适合直连不稳定或被拒绝的服务器。",
+    relayAcceleration: "连接中继",
+    directConnection: "直连 TeamSpeak",
+    relayAccelerationHint: "选择一个已配置的中继节点，适合直连不稳定或被拒绝的服务器。",
     nickname: "你的昵称",
     nicknamePlaceholder: "例如：Alex Rivera",
     targetChannel: "目标频道",
@@ -740,7 +741,9 @@ const translations: Record<string, Record<string, string>> = {
     serverPort: "Voice port",
     serverPortPlaceholder: "9987",
     serverAddressHint: "This is the TeamSpeak address and port reached by the gateway, not a direct browser connection.",
-    relayAccelerationHint: "Route this connection through the configured relay when a direct path is unstable or blocked.",
+    relayAcceleration: "Connection relay",
+    directConnection: "Direct TeamSpeak connection",
+    relayAccelerationHint: "Choose a configured relay when the direct path is unstable or blocked.",
     nickname: "Your nickname",
     nicknamePlaceholder: "e.g. Alex Rivera",
     targetChannel: "Target channel",
@@ -1007,7 +1010,9 @@ translations.de = {
   serverPort: "Sprachport",
   serverPortPlaceholder: "9987",
   serverAddressHint: "Dies ist die TeamSpeak-Adresse und der Port, die vom Gateway erreicht werden – keine direkte Browseradresse.",
-   relayAccelerationHint: "Leitet diese Verbindung über den konfigurierten Relay – für direkte Verbindungen mit Instabilität oder Ablehnung.",
+   relayAcceleration: "Verbindungs-Relay",
+   directConnection: "Direkte TeamSpeak-Verbindung",
+   relayAccelerationHint: "Wähle einen konfigurierten Relay, wenn die direkte Verbindung instabil ist oder abgelehnt wird.",
   nickname: "Dein Name",
   nicknamePlaceholder: "z. B. Alex Rivera",
   targetChannel: "Zielkanal",
@@ -1621,7 +1626,7 @@ function doConnect() {
   // Keep the password field available for a retry even when the target is
   // administrator-managed. The gateway still controls the target in fixed
   // mode and only accepts a non-empty retry password for that target.
-  connect(currentServerTarget(), channel.value.trim(), nickname.value, serverPassword.value, rememberIdentity.value ? identityMaterial.value : "", rememberIdentity.value, inviteToken, accelerationEnabled.value);
+  connect(currentServerTarget(), channel.value.trim(), nickname.value, serverPassword.value, rememberIdentity.value ? identityMaterial.value : "", rememberIdentity.value, inviteToken, Boolean(accelerationRelayId.value), accelerationRelayId.value);
 }
 
 function doDisconnect() {
@@ -1748,16 +1753,23 @@ async function loadPublicConfig() {
   try {
     const response = await fetch("/api/public-config", { headers: { accept: "application/json" } });
     if (!response.ok) return;
-    const config = await response.json() as { version?: unknown; initialized?: unknown; siteName?: unknown; welcomeText?: unknown; welcomeTextEn?: unknown; accessMode?: unknown; target?: unknown; accelerationAvailable?: unknown; accelerationName?: unknown };
+    const config = await response.json() as { version?: unknown; initialized?: unknown; siteName?: unknown; welcomeText?: unknown; welcomeTextEn?: unknown; accessMode?: unknown; target?: unknown; accelerationAvailable?: unknown; accelerationRelays?: unknown };
     if (typeof config.version === "string" && config.version.trim()) appVersion.value = config.version.trim();
     initialized.value = config.initialized === true;
     if (typeof config.siteName === "string" && config.siteName.trim()) siteName.value = config.siteName.trim();
     if (typeof config.welcomeText === "string") welcomeTextZh.value = config.welcomeText;
     if (typeof config.welcomeTextEn === "string") welcomeTextEn.value = config.welcomeTextEn;
     accessMode.value = config.accessMode === "open" ? "open" : "fixed";
-    accelerationAvailable.value = config.accelerationAvailable === true;
-    accelerationName.value = typeof config.accelerationName === "string" ? config.accelerationName.trim() : "";
-    if (!accelerationAvailable.value) accelerationEnabled.value = false;
+    accelerationRelays.value = Array.isArray(config.accelerationRelays)
+      ? config.accelerationRelays.flatMap((value) => {
+        if (!value || typeof value !== "object") return [];
+        const relay = value as { id?: unknown; name?: unknown };
+        return typeof relay.id === "string" && typeof relay.name === "string" && relay.id && relay.name
+          ? [{ id: relay.id, name: relay.name }]
+          : [];
+      })
+      : [];
+    if (!accelerationAvailable.value || !accelerationRelays.value.some((relay) => relay.id === accelerationRelayId.value)) accelerationRelayId.value = "";
     const hasInviteTarget = query.has("server") || query.has("target") || query.has("tsHost") || query.has("tsPort");
     if (!hasInviteTarget && typeof config.target === "string" && config.target.trim()) {
       const target = splitTeamSpeakTarget(config.target);
@@ -2190,8 +2202,9 @@ function stopWhisperTalk(): void {
 .reconnect-actions { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; }
 .reconnect-actions .secondary-button { min-height: 34px; padding-inline: 13px; }
 .remember-identity { display: flex; align-items: flex-start; gap: 9px; margin-top: 8px; color: #465650; cursor: pointer; }
-.acceleration-choice { display: flex; align-items: flex-start; gap: 9px; margin: 8px 0 2px; padding: 10px 11px; color: #245f58; background: #edf9f5; border: 1px solid #c4e9df; border-radius: 10px; cursor: pointer; }
-.acceleration-choice input { width: 16px; height: 16px; flex: 0 0 auto; margin: 1px 0 0; accent-color: #087d74; }
+.acceleration-choice { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 8px 0 2px; padding: 10px 11px; color: #245f58; background: #edf9f5; border: 1px solid #c4e9df; border-radius: 10px; }
+.acceleration-choice select { min-width: 150px; max-width: 48%; padding: 8px 28px 8px 10px; color: #245f58; background: #fff; border: 1px solid #b9ded5; border-radius: 8px; font: inherit; font-size: 11px; font-weight: 700; }
+.acceleration-copy { min-width: 0; }
 .acceleration-choice strong, .acceleration-choice small { display: block; }
 .acceleration-choice strong { font-size: 11px; font-weight: 800; }
 .acceleration-choice small { margin-top: 3px; color: #6b8c85; font-size: 10px; line-height: 1.45; }
@@ -2202,6 +2215,7 @@ function stopWhisperTalk(): void {
 .identity-warning { margin: 8px 0 0; color: #9a6a32; font-size: 10px; line-height: 1.45; }
 :global(html[data-theme="dark"] .acceleration-choice) { color: #b8eee3; background: #183530; border-color: #2b645b; }
 :global(html[data-theme="dark"] .acceleration-choice small) { color: #91b9b0; }
+:global(html[data-theme="dark"] .acceleration-choice select) { color: #d9f8f1; background: #203f39; border-color: #3b766d; }
 .local-servers { display: grid; gap: 8px; margin: 1px 0 5px; }
 .local-server-group { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
 .local-server-group > span { width: 100%; color: #87958f; font-size: 10px; font-weight: 700; }

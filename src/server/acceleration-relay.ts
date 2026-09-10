@@ -26,6 +26,11 @@ export interface AccelerationRelayOptions {
   timeoutMs?: number;
 }
 
+export interface ConfiguredAccelerationRelay extends AccelerationRelayOptions {
+  id: string;
+  name: string;
+}
+
 export interface AccelerationTarget {
   host: string;
   port: number;

@@ -1,7 +1,7 @@
 import { Router, type NextFunction, type Request, type Response } from "express";
 import { existsSync, readFileSync } from "node:fs";
 import type { Logger } from "../logger.js";
-import { AdminInputError, AdminService, type AdminSettingsInput } from "./admin-service.js";
+import { AdminInputError, AdminService, type AdminSettingsInput, type RelayNodeInput } from "./admin-service.js";
 import { AdminSessionStore, isSecureRequest } from "./admin-session.js";
 import { AdminLoginRateLimiter, waitFor } from "./login-rate-limit.js";
 import { TeamSpeakProbeError } from "../server/teamspeak-probe.js";
@@ -342,6 +342,19 @@ async function runProbe(
 }
 
 function readSettingsInput(body: Record<string, unknown>): AdminSettingsInput {
+  const relayNodes = Array.isArray(body.relayNodes)
+    ? body.relayNodes.map((value): RelayNodeInput => {
+      const node = asRecord(value);
+      return {
+        id: typeof node.id === "string" ? node.id.slice(0, 110) : undefined,
+        name: typeof node.name === "string" ? node.name.slice(0, 80) : "",
+        target: typeof node.target === "string" ? node.target.slice(0, 300) : "",
+        enabled: node.enabled === true,
+        token: typeof node.token === "string" ? node.token.slice(0, 512) : undefined,
+        tokenAction: readPasswordAction(node.tokenAction),
+      };
+    })
+    : undefined;
   return {
     target: readString(body, "target", 300),
     serverPassword: typeof body.serverPassword === "string" ? body.serverPassword.slice(0, 512) : undefined,
@@ -359,6 +372,7 @@ function readSettingsInput(body: Record<string, unknown>): AdminSettingsInput {
     relayTarget: typeof body.relayTarget === "string" ? body.relayTarget.slice(0, 300) : undefined,
     relayToken: typeof body.relayToken === "string" ? body.relayToken.slice(0, 512) : undefined,
     relayTokenAction: readPasswordAction(body.relayTokenAction),
+    relayNodes,
   };
 }
 
@@ -487,10 +501,14 @@ export function readConnectionHistory(logFile: string | undefined, limit: number
         : current.connectedAt
           ? Math.max(0, Math.floor((Date.parse(log.timestamp) - Date.parse(current.connectedAt)) / 1000))
           : null;
-      current.reason = typeof log.raw.failureCode === "string"
-        ? log.raw.failureCode
-        : typeof log.raw.reason === "string" ? log.raw.reason : null;
       current.status = current.connectedAt ? "disconnected" : "failed";
+      // `reason` is also used for ordinary lifecycle teardown (for example
+      // websocket-close when a user clicks Leave). Only preserve an explicit
+      // TeamSpeak failure code here; otherwise a normal disconnect would be
+      // rendered by the admin UI as the generic request-failed message.
+      current.reason = typeof log.raw.failureCode === "string" && log.raw.failureCode
+        ? log.raw.failureCode
+        : null;
     }
     records.set(entryId, current);
   }

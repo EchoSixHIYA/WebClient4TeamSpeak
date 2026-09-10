@@ -9,6 +9,7 @@ export interface JoinTicketPayload {
   identity?: string;
   rememberIdentity?: boolean;
   accelerated?: boolean;
+  accelerationRelayId?: string;
 }
 
 interface StoredTicket {

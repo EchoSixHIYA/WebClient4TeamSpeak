@@ -14,7 +14,7 @@ import { parseClientCommand, type ClientCommand } from "./voice-protocol.js";
 import { isRecoverable, reconnectDelayMs, reconnectWindowOpen } from "./reconnect-policy.js";
 import { WebRtcAudioSession, type WebRtcAudioOptions, type WebRtcAudioStats, type WebRtcSessionDescription } from "./webrtc-audio.js";
 import { pingTeamSpeakSession } from "./network-probe.js";
-import type { AccelerationRelayOptions } from "./acceleration-relay.js";
+import type { AccelerationRelayOptions, ConfiguredAccelerationRelay } from "./acceleration-relay.js";
 
 const require = createRequire(import.meta.url);
 const { OpusEncoder } = require("@discordjs/opus") as {
@@ -34,7 +34,7 @@ const MAX_SERVER_AUDIO_BUFFERED_BYTES = 4_096;
 export interface VoiceBridgeOptions {
   joinTickets: JoinTicketStore;
   webRtc?: WebRtcAudioOptions | (() => WebRtcAudioOptions);
-  acceleration?: AccelerationRelayOptions | (() => AccelerationRelayOptions | undefined);
+  acceleration?: ConfiguredAccelerationRelay[] | (() => ConfiguredAccelerationRelay[]);
   accelerationName?: string | (() => string | undefined);
 }
 
@@ -169,7 +169,7 @@ export class VoiceBridge {
 
       const { target, serverPassword, nickname } = connection;
       const channelName = connection.channel;
-      const acceleration = connection.accelerated ? this.getAccelerationOptions() : undefined;
+      const acceleration = connection.accelerated ? this.getAccelerationOptions(connection.accelerationRelayId) : undefined;
       if (connection.accelerated && !acceleration) {
         ws.close(4006, "ACCELERATION_UNAVAILABLE");
         return;
@@ -794,9 +794,13 @@ export class VoiceBridge {
     return typeof configured === "function" ? configured() : configured;
   }
 
-  private getAccelerationOptions(): AccelerationRelayOptions | undefined {
+  private getAccelerationOptions(relayId = ""): AccelerationRelayOptions | undefined {
     const configured = this.options.acceleration;
-    return typeof configured === "function" ? configured() : configured;
+    const relays = typeof configured === "function" ? configured() : configured;
+    if (!relays?.length) return undefined;
+    const selected = relayId ? relays.find((relay) => relay.id === relayId) : relays[0];
+    if (!selected) return undefined;
+    return { relayHost: selected.relayHost, relayPort: selected.relayPort, token: selected.token };
   }
 
   private async handleWebRtcOffer(

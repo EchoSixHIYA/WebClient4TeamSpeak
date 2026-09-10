@@ -181,34 +181,35 @@ WebRTC 将浏览器的实时语音从兼容传输切换为更适合实时音频�
 
 中继用于目标 TeamSpeak 服务器拒绝境外连接或直连不稳定的场景。它不是 VPN，只转发当前 WebSpeak 会话的 TeamSpeak UDP 数据；目标服务器仍由用户在网页中选择。
 
-**部署中继服务：**
+**部署中继模式：**
 
-使用与 WebSpeak 相同的发布包或容器，在中继所在主机启动 `dist/relay.js`。令牌必须是至少 16 个字符的随机值，并在中继与 WebSpeak 管理控制台中保持一致：
+中继模式是 WebSpeak 的专用转发实例：不提供欢迎页、管理员后台，也不允许用户直接登录，只接受已配置网关使用匹配令牌转发的会话。令牌必须是至少 16 个字符的随机值，并在中继与网关管理控制台中保持一致：
 
 ```bash
-WEBSPEAK_ACCELERATION_RELAY_TOKEN='replace-with-a-long-random-token' \
-WEBSPEAK_ACCELERATION_RELAY_HOST='0.0.0.0' \
-WEBSPEAK_ACCELERATION_RELAY_PORT='39087' \
-node dist/relay.js
+WEBSPEAK_MODE=relay \
+WEBSPEAK_RELAY_TOKEN='replace-with-a-long-random-token' \
+WEBSPEAK_RELAY_HOST='0.0.0.0' \
+WEBSPEAK_RELAY_PORT='39087' \
+node dist/index.js
 ```
 
 也可以使用发布的 Docker 镜像启动独立中继：
 
 ```bash
 docker run -d --name webspeak-relay --restart unless-stopped --network host \
-  -e WEBSPEAK_ACCELERATION_RELAY_TOKEN='replace-with-a-long-random-token' \
-  -e WEBSPEAK_ACCELERATION_RELAY_PORT='39087' \
-  ghcr.io/echosixhiya/webspeak:latest node dist/relay.js
+  -e WEBSPEAK_MODE=relay \
+  -e WEBSPEAK_RELAY_TOKEN='replace-with-a-long-random-token' \
+  -e WEBSPEAK_RELAY_PORT='39087' \
+  ghcr.io/echosixhiya/webspeak:latest
 ```
 
-放行中继主机的 UDP 监听端口（默认 `39087`）。默认情况下，中继拒绝显式写入的回环、私网和保留地址；只有在可信内网中确实需要访问这类目标时，才在中继进程设置 `WEBSPEAK_ACCELERATION_RELAY_ALLOW_PRIVATE=true`。
+放行中继主机的 UDP 监听端口（默认 `39087`）。默认情况下，中继拒绝显式写入的回环、私网和保留地址；只有在可信内网中确实需要访问这类目标时，才在中继进程设置 `WEBSPEAK_RELAY_ALLOW_PRIVATE=true`。
 
 **在 WebSpeak 中启用：**
 
-1. 管理员控制台 → “服务器” → “中继服务器”。
-2. 开启“中继加速”，填写显示名称，例如“大陆节点”。
-3. 填写中继地址，格式为 `relay.example.com#39087`，并输入与中继进程相同的令牌。
-4. 保存后，访客欢迎页会出现以该名称显示的加速选项。用户勾选后，该连接才会通过中继访问目标 TeamSpeak。
+1. 管理员控制台 → “服务器” → “中继服务器”，添加一个或多个节点。
+2. 为每个节点填写显示名称、地址（例如 `relay.example.com#39087`）和匹配令牌，并保存。
+3. 访客欢迎页会显示可用节点；用户可为当前连接选择直连或其中一个中继。
 
 关闭并保存中继配置后，访客页面不会继续显示该选项；环境变量不会替代管理员控制台中的公开网关配置。
 
@@ -224,6 +225,7 @@ docker run -d --name webspeak-relay --restart unless-stopped --network host \
 
 | 版本 | 日期 | 摘要 |
 | --- | --- | --- |
+| 未发布 | 2026-09-10 | 增加正式中继部署模式和多中继节点选择；修复正常断开被显示为请求失败。 |
 | [v0.2.0](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.2.0) | 2026-09-10 | 修复连接错误显示并增加服务器密码提示与重试；加入中继服务器和高级功能配置教程，优化管理员历史连接日志的原因显示。 |
 | [v0.1.8](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.8) | 2026-09-08 | 简化 Docker 部署并支持连接同机 TeamSpeak；开放模式加强目标校验；SDK 增加 15 秒连接超时；网络性能面板改为每 3 秒持续监测。 |
 | [v0.1.7](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.7) | 2026-09-06 | 增加德语支持、Telegram 群组入口、网络性能面板和丢包率测试；管理员测试不再创建临时客户端，并修复语言菜单留白与伴奏音量波动。 |
@@ -403,34 +405,35 @@ The port range is locked while WebRTC is enabled. Disable and save WebRTC before
 
 Use a relay when a TeamSpeak server rejects connections from outside its region or when a direct path is unstable. It is not a VPN: it forwards only the TeamSpeak UDP traffic of the current WebSpeak session, while the visitor still chooses the target server in the web page.
 
-**Start the relay:**
+**Run relay mode:**
 
-Run `dist/relay.js` from the same release package or container used by WebSpeak. Use a random token of at least 16 characters and configure the same token on the relay and in the WebSpeak administration console:
+Relay mode is a dedicated WebSpeak forwarding instance: it exposes no welcome page or administration console and does not accept direct user sessions. It only accepts gateway sessions carrying a matching relay token. Use a random token of at least 16 characters and configure the same token on the relay and in the gateway administration console:
 
 ```bash
-WEBSPEAK_ACCELERATION_RELAY_TOKEN='replace-with-a-long-random-token' \
-WEBSPEAK_ACCELERATION_RELAY_HOST='0.0.0.0' \
-WEBSPEAK_ACCELERATION_RELAY_PORT='39087' \
-node dist/relay.js
+WEBSPEAK_MODE=relay \
+WEBSPEAK_RELAY_TOKEN='replace-with-a-long-random-token' \
+WEBSPEAK_RELAY_HOST='0.0.0.0' \
+WEBSPEAK_RELAY_PORT='39087' \
+node dist/index.js
 ```
 
 You can also run a standalone relay from the published Docker image:
 
 ```bash
 docker run -d --name webspeak-relay --restart unless-stopped --network host \
-  -e WEBSPEAK_ACCELERATION_RELAY_TOKEN='replace-with-a-long-random-token' \
-  -e WEBSPEAK_ACCELERATION_RELAY_PORT='39087' \
-  ghcr.io/echosixhiya/webspeak:latest node dist/relay.js
+  -e WEBSPEAK_MODE=relay \
+  -e WEBSPEAK_RELAY_TOKEN='replace-with-a-long-random-token' \
+  -e WEBSPEAK_RELAY_PORT='39087' \
+  ghcr.io/echosixhiya/webspeak:latest
 ```
 
-Allow the relay host's UDP listen port (default `39087`). The relay blocks explicitly entered loopback, private, and reserved targets by default. Only set `WEBSPEAK_ACCELERATION_RELAY_ALLOW_PRIVATE=true` when a trusted internal deployment deliberately needs those targets.
+Allow the relay host's UDP listen port (default `39087`). The relay blocks explicitly entered loopback, private, and reserved targets by default. Only set `WEBSPEAK_RELAY_ALLOW_PRIVATE=true` when a trusted internal deployment deliberately needs those targets.
 
 **Enable it in WebSpeak:**
 
-1. Open **Administration → Servers → Relay server**.
-2. Enable relay acceleration and enter a display name such as `Mainland relay`.
-3. Enter the relay endpoint as `relay.example.com#39087` and the same token used by the relay process.
-4. After saving, the welcome page shows an acceleration option with that display name. A visitor must select it for that connection to use the relay.
+1. Open **Administration → Servers → Relay server** and add one or more nodes.
+2. Set each node's display name, endpoint (for example `relay.example.com#39087`), and matching token, then save.
+3. The welcome page lists the available nodes; visitors can choose direct access or one relay for the current connection.
 
 Disable and save the relay configuration to remove the option from the welcome page. Environment variables do not replace the public gateway configuration saved in the administration console.
 
@@ -446,6 +449,7 @@ Disable and save the relay configuration to remove the option from the welcome p
 
 | Version | Date | Summary |
 | --- | --- | --- |
+| Unreleased | 2026-09-10 | Added formal relay deployment and multi-relay selection; fixed normal disconnects being shown as request failures. |
 | [v0.2.0](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.2.0) | 2026-09-10 | Fixed connection-error reporting, added server-password prompts and retry, introduced relay-server guidance, and improved reason reporting in administrator connection history. |
 | [v0.1.8](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.8) | 2026-09-08 | Simplified Docker deployment for local TeamSpeak targets; hardened open-target validation; added a 15-second SDK connection timeout; network metrics now refresh every 3 seconds. |
 | [v0.1.7](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.7) | 2026-09-06 | Added German support, a Telegram community link, network performance and packet-loss checks; admin tests no longer create temporary clients, and language-menu spacing and accompaniment volume fluctuations were fixed. |
@@ -625,25 +629,35 @@ Der Portbereich ist bei aktiviertem WebRTC gesperrt. Zum Ändern WebRTC zuerst d
 
 Ein Relay hilft, wenn ein TeamSpeak-Server Verbindungen aus anderen Regionen ablehnt oder der direkte Weg instabil ist. Es ist kein VPN, sondern leitet nur den TeamSpeak-UDP-Verkehr der aktuellen WebSpeak-Sitzung weiter.
 
-**Relay starten:**
+**Relay-Modus starten:**
 
-`dist/relay.js` aus demselben Release-Paket oder Container wie WebSpeak starten. Ein zufälliges Token mit mindestens 16 Zeichen verwenden und dasselbe Token im Relay sowie in der WebSpeak-Administrationskonsole eintragen:
+Der Relay-Modus ist eine dedizierte WebSpeak-Weiterleitungsinstanz: Er stellt keine Willkommensseite und keine Administrationskonsole bereit und akzeptiert keine direkten Benutzersitzungen. Er akzeptiert nur Gateway-Sitzungen mit passendem Relay-Token. Ein zufälliges Token mit mindestens 16 Zeichen verwenden und dasselbe Token im Relay sowie in der WebSpeak-Administrationskonsole eintragen:
 
 ```bash
-WEBSPEAK_ACCELERATION_RELAY_TOKEN='replace-with-a-long-random-token' \
-WEBSPEAK_ACCELERATION_RELAY_HOST='0.0.0.0' \
-WEBSPEAK_ACCELERATION_RELAY_PORT='39087' \
-node dist/relay.js
+WEBSPEAK_MODE=relay \
+WEBSPEAK_RELAY_TOKEN='replace-with-a-long-random-token' \
+WEBSPEAK_RELAY_HOST='0.0.0.0' \
+WEBSPEAK_RELAY_PORT='39087' \
+node dist/index.js
 ```
 
-Das UDP-Listening-Port des Relay-Hosts freigeben (Standard `39087`). Explizit eingetragene Loopback-, private und reservierte Ziele werden standardmäßig abgelehnt. `WEBSPEAK_ACCELERATION_RELAY_ALLOW_PRIVATE=true` nur in einer vertrauenswürdigen internen Umgebung setzen, wenn solche Ziele absichtlich benötigt werden.
+Das UDP-Listening-Port des Relay-Hosts freigeben (Standard `39087`). Explizit eingetragene Loopback-, private und reservierte Ziele werden standardmäßig abgelehnt. `WEBSPEAK_RELAY_ALLOW_PRIVATE=true` nur in einer vertrauenswürdigen internen Umgebung setzen, wenn solche Ziele absichtlich benötigt werden.
+
+Für Docker denselben veröffentlichten WebSpeak-Container im Relay-Modus starten:
+
+```bash
+docker run -d --name webspeak-relay --restart unless-stopped --network host \
+  -e WEBSPEAK_MODE=relay \
+  -e WEBSPEAK_RELAY_TOKEN='replace-with-a-long-random-token' \
+  -e WEBSPEAK_RELAY_PORT='39087' \
+  ghcr.io/echosixhiya/webspeak:latest
+```
 
 **In WebSpeak aktivieren:**
 
-1. **Administration → Server → Relay-Server** öffnen.
-2. Relay-Beschleunigung aktivieren und einen Anzeigenamen eintragen, zum Beispiel `Mainland relay`.
-3. Den Relay-Endpunkt im Format `relay.example.com#39087` und dasselbe Token eintragen.
-4. Nach dem Speichern erscheint die Beschleunigungsoption mit diesem Namen auf der Willkommensseite. Besucher müssen sie für die jeweilige Verbindung auswählen.
+1. **Administration → Server → Relay-Server** öffnen und einen oder mehrere Knoten hinzufügen.
+2. Für jeden Knoten Anzeigenamen, Endpunkt (zum Beispiel `relay.example.com#39087`) und passendes Token eintragen und speichern.
+3. Auf der Willkommensseite können Besucher eine direkte Verbindung oder einen der verfügbaren Relays auswählen.
 
 Relay deaktivieren und speichern, um die Option von der Willkommensseite zu entfernen. Umgebungsvariablen ersetzen nicht die im Administrationsbereich gespeicherte öffentliche Gateway-Konfiguration.
 
@@ -659,6 +673,7 @@ Relay deaktivieren und speichern, um die Option von der Willkommensseite zu entf
 
 | Version | Datum | Zusammenfassung |
 | --- | --- | --- |
+| Unveröffentlicht | 2026-09-10 | Dedizierten Relay-Modus und Auswahl mehrerer Relay-Knoten ergänzt; normale Trennungen werden nicht mehr als fehlgeschlagene Anfrage angezeigt. |
 | [v0.2.0](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.2.0) | 2026-09-10 | Fehleranzeigen bei Verbindungen korrigiert, Passwortabfrage und Wiederholung ergänzt, Anleitungen für Relay-Server und erweiterte Funktionen hinzugefügt sowie die Ursachendarstellung im Verbindungsverlauf verbessert. |
 | [v0.1.8](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.8) | 2026-09-08 | Docker-Bereitstellung für lokale TeamSpeak-Ziele vereinfacht; Zielprüfung im offenen Modus gehärtet; 15-Sekunden-Timeout für SDK-Verbindungen ergänzt; Netzwerkmetriken werden alle 3 Sekunden aktualisiert. |
 | [v0.1.7](https://github.com/EchoSixHIYA/WebSpeak-client-for-TeamSpeak/releases/tag/v0.1.7) | 2026-09-06 | Deutsche Oberfläche, Telegram-Link sowie Netzwerk- und Paketverlustprüfung hinzugefügt; Admin-Tests erzeugen keine temporären Clients mehr, außerdem wurden Sprachmenü-Leerraum und Begleitton-Schwankungen behoben. |

@@ -1,5 +1,25 @@
 # Changelog
 
+## [Unreleased] — 2026-09-10
+
+### 中文
+
+- 新增正式中继部署模式：中继实例不提供前台和管理员后台，只接受带令牌的网关转发会话。
+- 管理员可配置多个中继节点，访客可在欢迎页为当前连接选择直连或指定中继。
+- 修复用户正常断开后被管理员运维日志误显示为“请求失败”的问题。
+
+### English
+
+- Added a formal relay deployment mode: relay instances expose no visitor or admin UI and accept only token-authenticated gateway sessions.
+- Administrators can configure multiple relay nodes, and visitors can choose direct access or a specific relay for each connection.
+- Fixed normal user disconnects being shown as “request failed” in administrator connection history.
+
+### Deutsch
+
+- Einen dedizierten Relay-Bereitstellungsmodus ergänzt: Relay-Instanzen stellen keine Besucher- oder Admin-Oberfläche bereit und akzeptieren nur Gateway-Sitzungen mit Token.
+- Administratoren können mehrere Relay-Knoten konfigurieren; Besucher wählen pro Verbindung Direktzugriff oder ein bestimmtes Relay.
+- Behoben, dass normale Benutzertrennungen im Administrationsverlauf als „Anfrage fehlgeschlagen“ erschienen.
+
 ## [0.2.0] — 2026-09-10
 
 ### 中文

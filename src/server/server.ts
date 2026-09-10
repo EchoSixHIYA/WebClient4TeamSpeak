@@ -12,7 +12,7 @@ import { AdminSessionStore } from "../admin/admin-session.js";
 import { resolveSafeOpenTarget } from "../security/open-target-policy.js";
 import { identityFromString } from "@echosixhiya/teamspeak-client";
 import { JoinRateLimiter } from "./join-rate-limit.js";
-import type { AccelerationRelayOptions } from "./acceleration-relay.js";
+import type { ConfiguredAccelerationRelay } from "./acceleration-relay.js";
 
 export interface WebServerOptions {
   port: number;
@@ -61,11 +61,10 @@ export function createWebServer(options: WebServerOptions): WebServer {
   app.get("/api/public-config", (_request, response) => {
     response.setHeader("Cache-Control", "no-store");
     const acceleration = resolveAccelerationOptions(options.voiceBridgeOptions.acceleration);
-    const accelerationName = resolveAccelerationName(options.voiceBridgeOptions.accelerationName);
     response.json({
       ...options.adminService.getPublicConfig(),
-      accelerationAvailable: Boolean(acceleration),
-      accelerationName: acceleration ? (accelerationName || "中继加速") : "",
+      accelerationAvailable: acceleration.length > 0,
+      accelerationRelays: acceleration.map((relay) => ({ id: relay.id, name: relay.name })),
     });
   });
 
@@ -111,9 +110,14 @@ export function createWebServer(options: WebServerOptions): WebServer {
     let target = managedInvite?.target ?? policy.defaultTarget;
     let serverPassword = managedInvite?.serverPassword ?? policy.serverPassword;
     const channel = requestedChannel || managedInvite?.channel || "";
-    const accelerationRequested = body.accelerated === true;
+    const requestedRelayId = typeof body.accelerationRelayId === "string" ? body.accelerationRelayId.trim().slice(0, 110) : "";
+    const accelerationRequested = body.accelerated === true || Boolean(requestedRelayId);
     const acceleration = resolveAccelerationOptions(options.voiceBridgeOptions.acceleration);
-    if (accelerationRequested && !acceleration) {
+    if (accelerationRequested && acceleration.length === 0) {
+      response.status(400).json({ ok: false, code: "ACCELERATION_UNAVAILABLE" });
+      return;
+    }
+    if (requestedRelayId && !acceleration.some((relay) => relay.id === requestedRelayId)) {
       response.status(400).json({ ok: false, code: "ACCELERATION_UNAVAILABLE" });
       return;
     }
@@ -147,7 +151,7 @@ export function createWebServer(options: WebServerOptions): WebServer {
       nickname,
       ...(channel ? { channel } : {}),
       ...(identity ? { identity, rememberIdentity: true } : body.rememberIdentity === true ? { rememberIdentity: true } : {}),
-      ...(accelerationRequested ? { accelerated: true } : {}),
+      ...(accelerationRequested ? { accelerated: true, ...(requestedRelayId ? { accelerationRelayId: requestedRelayId } : {}) } : {}),
     });
     response.status(201).json({ ok: true, ticket });
   });
@@ -196,15 +200,11 @@ export function createWebServer(options: WebServerOptions): WebServer {
 }
 
 function resolveAccelerationOptions(
-  configured: AccelerationRelayOptions | (() => AccelerationRelayOptions | undefined) | undefined,
-): AccelerationRelayOptions | undefined {
-  return typeof configured === "function" ? configured() : configured;
-}
-
-function resolveAccelerationName(
-  configured: VoiceBridgeOptions["accelerationName"],
-): string | undefined {
-  return typeof configured === "function" ? configured() : configured;
+  configured: ConfiguredAccelerationRelay[] | (() => ConfiguredAccelerationRelay[]) | undefined,
+): ConfiguredAccelerationRelay[] {
+  const value = typeof configured === "function" ? configured() : configured;
+  if (!value) return [];
+  return Array.isArray(value) ? value : [value];
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
