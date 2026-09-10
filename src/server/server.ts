@@ -61,7 +61,12 @@ export function createWebServer(options: WebServerOptions): WebServer {
   app.get("/api/public-config", (_request, response) => {
     response.setHeader("Cache-Control", "no-store");
     const acceleration = resolveAccelerationOptions(options.voiceBridgeOptions.acceleration);
-    response.json({ ...options.adminService.getPublicConfig(), accelerationAvailable: Boolean(acceleration) });
+    const accelerationName = resolveAccelerationName(options.voiceBridgeOptions.accelerationName);
+    response.json({
+      ...options.adminService.getPublicConfig(),
+      accelerationAvailable: Boolean(acceleration),
+      accelerationName: acceleration ? (accelerationName || "中继加速") : "",
+    });
   });
 
   app.post("/api/join-ticket", async (request, response) => {
@@ -187,6 +192,12 @@ export function createWebServer(options: WebServerOptions): WebServer {
 function resolveAccelerationOptions(
   configured: AccelerationRelayOptions | (() => AccelerationRelayOptions | undefined) | undefined,
 ): AccelerationRelayOptions | undefined {
+  return typeof configured === "function" ? configured() : configured;
+}
+
+function resolveAccelerationName(
+  configured: VoiceBridgeOptions["accelerationName"],
+): string | undefined {
   return typeof configured === "function" ? configured() : configured;
 }
 

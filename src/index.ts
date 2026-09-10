@@ -9,7 +9,7 @@ import { loadOrCreateMasterSecret } from "./security/master-secret.js";
 import { AdminService } from "./admin/admin-service.js";
 import { JoinTicketStore } from "./server/join-ticket.js";
 import { parseTeamSpeakTarget } from "./domain/teamspeak-target.js";
-import type { AccelerationRelayOptions } from "./server/acceleration-relay.js";
+import { DEFAULT_ACCELERATION_RELAY_PORT, type AccelerationRelayOptions } from "./server/acceleration-relay.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, "..");
@@ -51,7 +51,10 @@ async function main() {
     voiceBridgeOptions: {
       joinTickets,
       webRtc: () => adminService.getWebRtcAudioOptions(),
-      acceleration: readAccelerationRelayOptions,
+      acceleration: () => adminService.hasAccelerationRelaySettings() ? adminService.getAccelerationRelayOptions() : readAccelerationRelayOptions(),
+      accelerationName: () => adminService.hasAccelerationRelaySettings()
+        ? adminService.getAccelerationRelayName()
+        : readAccelerationRelayOptions() ? "中继加速" : undefined,
     },
     adminService,
     logger,
@@ -79,7 +82,7 @@ function readAccelerationRelayOptions(): AccelerationRelayOptions | undefined {
     return undefined;
   }
   try {
-    const endpoint = parseTeamSpeakTarget(relay, 39087);
+    const endpoint = parseTeamSpeakTarget(relay, DEFAULT_ACCELERATION_RELAY_PORT);
     return { relayHost: endpoint.host, relayPort: endpoint.port, token };
   } catch {
     console.warn("WEBSPEAK_ACCELERATION_RELAY is invalid; acceleration is disabled");

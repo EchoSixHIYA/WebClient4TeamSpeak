@@ -41,7 +41,7 @@
               <label class="field-label" for="server-port"><span>{{ t('serverPort') }}</span><div class="field-wrap"><Icon name="hash" :size="17" /><input id="server-port" v-model="serverPort" inputmode="numeric" type="text" maxlength="5" :placeholder="t('serverPortPlaceholder')" /></div></label>
             </div>
             <p v-if="accessMode === 'open'" class="field-hint">{{ t('serverAddressHint') }}</p>
-            <label v-if="accelerationAvailable" class="acceleration-choice"><input v-model="accelerationEnabled" type="checkbox" /><span><strong>{{ t('mainlandAcceleration') }}</strong><small>{{ t('mainlandAccelerationHint') }}</small></span></label>
+            <label v-if="accelerationAvailable" class="acceleration-choice"><input v-model="accelerationEnabled" type="checkbox" /><span><strong>{{ accelerationDisplayName }}</strong><small>{{ t('relayAccelerationHint') }}</small></span></label>
             <div v-if="accessMode === 'open' && (favoriteServers.length || recentServers.length)" class="local-servers">
               <div v-if="favoriteServers.length" class="local-server-group"><span>{{ t('favoriteServers') }}</span><button v-for="favorite in favoriteServers" :key="favorite.id" type="button" @click="selectLocalServer(favorite.address, favorite.nickname)">{{ favorite.label }}</button></div>
               <div v-if="recentServers.length" class="local-server-group"><span>{{ t('recentServers') }}</span><button v-for="recent in recentServers" :key="recent.id" type="button" @click="selectLocalServer(recent.address, recent.nickname)">{{ recent.address }}</button></div>
@@ -381,6 +381,7 @@ const welcomeTextZh = ref("");
 const welcomeTextEn = ref("");
 const appVersion = ref("0.2.0-preview");
 const accelerationAvailable = ref(false);
+const accelerationName = ref("");
 const accelerationEnabled = ref(false);
 const browserError = ref("");
 const serverConfigLoading = ref(true);
@@ -421,6 +422,7 @@ const themeMode = ref<ThemeMode>(getStoredTheme());
 const themeIcon = computed(() => isDarkTheme(themeMode.value) ? "sun" : "moon");
 const themeLabel = computed(() => isDarkTheme(themeMode.value) ? t("switchToLightTheme") : t("switchToDarkTheme"));
 const localizedWelcomeText = computed(() => (language.value === "en" ? welcomeTextEn.value : welcomeTextZh.value) || t("joinDescription"));
+const accelerationDisplayName = computed(() => accelerationName.value || (language.value === "zh" ? "中继加速" : language.value === "de" ? "Relay-Beschleunigung" : "Relay acceleration"));
 applyTheme(themeMode.value);
 const translations: Record<string, Record<string, string>> = {
   zh: {
@@ -457,8 +459,7 @@ const translations: Record<string, Record<string, string>> = {
     serverPort: "语音端口",
     serverPortPlaceholder: "9987",
     serverAddressHint: "这是网关服务器连接的 TeamSpeak 地址和端口，不是浏览器直接连接地址。",
-    mainlandAcceleration: "大陆节点智能加速",
-    mainlandAccelerationHint: "通过已配置的大陆节点转发，适合境外连接不稳定或被拒绝的服务器。",
+    relayAccelerationHint: "通过已配置的中继服务器转发，适合直连不稳定或被拒绝的服务器。",
     nickname: "你的昵称",
     nicknamePlaceholder: "例如：Alex Rivera",
     targetChannel: "目标频道",
@@ -716,8 +717,7 @@ const translations: Record<string, Record<string, string>> = {
     serverPort: "Voice port",
     serverPortPlaceholder: "9987",
     serverAddressHint: "This is the TeamSpeak address and port reached by the gateway, not a direct browser connection.",
-    mainlandAcceleration: "Mainland node acceleration",
-    mainlandAccelerationHint: "Route this connection through the configured mainland relay for servers that reject or slow overseas traffic.",
+    relayAccelerationHint: "Route this connection through the configured relay when a direct path is unstable or blocked.",
     nickname: "Your nickname",
     nicknamePlaceholder: "e.g. Alex Rivera",
     targetChannel: "Target channel",
@@ -978,8 +978,7 @@ translations.de = {
   serverPort: "Sprachport",
   serverPortPlaceholder: "9987",
   serverAddressHint: "Dies ist die TeamSpeak-Adresse und der Port, die vom Gateway erreicht werden – keine direkte Browseradresse.",
-  mainlandAcceleration: "Beschleunigung über einen Festlandknoten",
-  mainlandAccelerationHint: "Leitet diese Verbindung über das konfigurierte Festland-Relay – für Server mit instabilen oder abgelehnten Auslandsverbindungen.",
+   relayAccelerationHint: "Leitet diese Verbindung über den konfigurierten Relay – für direkte Verbindungen mit Instabilität oder Ablehnung.",
   nickname: "Dein Name",
   nicknamePlaceholder: "z. B. Alex Rivera",
   targetChannel: "Zielkanal",
@@ -1680,7 +1679,7 @@ async function loadPublicConfig() {
   try {
     const response = await fetch("/api/public-config", { headers: { accept: "application/json" } });
     if (!response.ok) return;
-    const config = await response.json() as { version?: unknown; initialized?: unknown; siteName?: unknown; welcomeText?: unknown; welcomeTextEn?: unknown; accessMode?: unknown; target?: unknown; accelerationAvailable?: unknown };
+    const config = await response.json() as { version?: unknown; initialized?: unknown; siteName?: unknown; welcomeText?: unknown; welcomeTextEn?: unknown; accessMode?: unknown; target?: unknown; accelerationAvailable?: unknown; accelerationName?: unknown };
     if (typeof config.version === "string" && config.version.trim()) appVersion.value = config.version.trim();
     initialized.value = config.initialized === true;
     if (typeof config.siteName === "string" && config.siteName.trim()) siteName.value = config.siteName.trim();
@@ -1688,6 +1687,7 @@ async function loadPublicConfig() {
     if (typeof config.welcomeTextEn === "string") welcomeTextEn.value = config.welcomeTextEn;
     accessMode.value = config.accessMode === "open" ? "open" : "fixed";
     accelerationAvailable.value = config.accelerationAvailable === true;
+    accelerationName.value = typeof config.accelerationName === "string" ? config.accelerationName.trim() : "";
     if (!accelerationAvailable.value) accelerationEnabled.value = false;
     const hasInviteTarget = query.has("server") || query.has("target") || query.has("tsHost") || query.has("tsPort");
     if (!hasInviteTarget && typeof config.target === "string" && config.target.trim()) {

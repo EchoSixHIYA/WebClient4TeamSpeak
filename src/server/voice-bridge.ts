@@ -35,6 +35,7 @@ export interface VoiceBridgeOptions {
   joinTickets: JoinTicketStore;
   webRtc?: WebRtcAudioOptions | (() => WebRtcAudioOptions);
   acceleration?: AccelerationRelayOptions | (() => AccelerationRelayOptions | undefined);
+  accelerationName?: string | (() => string | undefined);
 }
 
 export interface AdminSessionSummary {

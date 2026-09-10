@@ -7,6 +7,7 @@ const MAGIC = Buffer.from("WSAT");
 const VERSION = 1;
 const HEADER_SIZE = 34;
 const MAX_PAYLOAD_SIZE = 60_000;
+export const DEFAULT_ACCELERATION_RELAY_PORT = 39087;
 
 const enum FrameType {
   OPEN = 1,

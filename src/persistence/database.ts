@@ -6,7 +6,7 @@ import type { AdminCredential } from "../security/admin-password.js";
 import type { TeamSpeakProtocol } from "../server/teamspeak-adapter.js";
 import { DEFAULT_WEBRTC_UDP_PORT_RANGE } from "../server/webrtc-config.js";
 
-export const DATABASE_SCHEMA_VERSION = 4;
+export const DATABASE_SCHEMA_VERSION = 5;
 export type AccessMode = "fixed" | "open";
 
 export interface PersistedSettings {
@@ -24,6 +24,12 @@ export interface PersistedSettings {
   webRtcEnabled: boolean;
   webRtcUdpStart: number;
   webRtcUdpEnd: number;
+  relayConfigured: boolean;
+  relayEnabled: boolean;
+  relayName: string;
+  relayHost: string;
+  relayPort: number;
+  relayTokenEncrypted: string | null;
   updatedAt: string;
 }
 
@@ -38,6 +44,12 @@ export interface SettingsUpdate {
   webRtcEnabled: boolean;
   webRtcUdpStart?: number;
   webRtcUdpEnd?: number;
+  relayConfigured: boolean;
+  relayEnabled: boolean;
+  relayName: string;
+  relayHost: string;
+  relayPort: number;
+  relayTokenEncrypted: string | null;
 }
 
 export interface ManagedInviteRecord {
@@ -84,6 +96,12 @@ interface SettingsRow extends Record<string, unknown> {
   webrtc_public_host: string;
   webrtc_udp_start: number;
   webrtc_udp_end: number;
+  relay_configured: number;
+  relay_enabled: number;
+  relay_name: string;
+  relay_host: string;
+  relay_port: number;
+  relay_token_encrypted: string | null;
   updated_at: string;
 }
 
@@ -158,6 +176,12 @@ export class WebSpeakDatabase {
       webRtcEnabled: row.webrtc_enabled === 1,
       webRtcUdpStart: row.webrtc_udp_start,
       webRtcUdpEnd: row.webrtc_udp_end,
+      relayConfigured: row.relay_configured === 1,
+      relayEnabled: row.relay_enabled === 1,
+      relayName: row.relay_name,
+      relayHost: row.relay_host,
+      relayPort: row.relay_port,
+      relayTokenEncrypted: row.relay_token_encrypted,
       updatedAt: row.updated_at,
     };
   }
@@ -390,6 +414,20 @@ export class WebSpeakDatabase {
         `);
         this.database.exec("PRAGMA user_version = 4");
       });
+      version = 4;
+    }
+    if (version === 4) {
+      this.transaction(() => {
+        this.database.exec(`
+          ALTER TABLE settings ADD COLUMN relay_configured INTEGER NOT NULL DEFAULT 0 CHECK (relay_configured IN (0, 1));
+          ALTER TABLE settings ADD COLUMN relay_enabled INTEGER NOT NULL DEFAULT 0 CHECK (relay_enabled IN (0, 1));
+          ALTER TABLE settings ADD COLUMN relay_name TEXT NOT NULL DEFAULT '';
+          ALTER TABLE settings ADD COLUMN relay_host TEXT NOT NULL DEFAULT '';
+          ALTER TABLE settings ADD COLUMN relay_port INTEGER NOT NULL DEFAULT 39087 CHECK (relay_port BETWEEN 1 AND 65535);
+          ALTER TABLE settings ADD COLUMN relay_token_encrypted TEXT;
+        `);
+        this.database.exec("PRAGMA user_version = 5");
+      });
     }
   }
 
@@ -398,7 +436,8 @@ export class WebSpeakDatabase {
       `UPDATE settings SET
          site_name = ?, welcome_text = ?, welcome_text_en = ?, access_mode = ?, ts_host = ?, ts_port = ?,
          ts_password_encrypted = ?, webrtc_enabled = ?, webrtc_udp_start = ?,
-         webrtc_udp_end = ?, updated_at = ?
+         webrtc_udp_end = ?, relay_configured = ?, relay_enabled = ?, relay_name = ?,
+         relay_host = ?, relay_port = ?, relay_token_encrypted = ?, updated_at = ?
        WHERE id = 1`,
     ).run(
       settings.siteName,
@@ -411,6 +450,12 @@ export class WebSpeakDatabase {
       settings.webRtcEnabled ? 1 : 0,
       settings.webRtcUdpStart ?? DEFAULT_WEBRTC_UDP_PORT_RANGE[0],
       settings.webRtcUdpEnd ?? DEFAULT_WEBRTC_UDP_PORT_RANGE[1],
+      settings.relayConfigured ? 1 : 0,
+      settings.relayEnabled ? 1 : 0,
+      settings.relayName,
+      settings.relayHost,
+      settings.relayPort,
+      settings.relayTokenEncrypted,
       now,
     );
   }

@@ -9,6 +9,7 @@ import { decryptSecret, encryptSecret } from "../security/secret-crypto.js";
 import { probeTeamSpeak, TeamSpeakProbeError } from "../server/teamspeak-probe.js";
 import { pingTeamSpeakHost } from "../server/network-probe.js";
 import type { WebRtcAudioOptions } from "../server/webrtc-audio.js";
+import { DEFAULT_ACCELERATION_RELAY_PORT, type AccelerationRelayOptions } from "../server/acceleration-relay.js";
 import { DEFAULT_WEBRTC_UDP_PORT_RANGE, WEBRTC_UDP_PORT_MAX, WEBRTC_UDP_PORT_MIN } from "../server/webrtc-config.js";
 
 export interface AdminSettingsInput {
@@ -22,6 +23,12 @@ export interface AdminSettingsInput {
   webRtcEnabled: boolean;
   webRtcUdpStart?: number;
   webRtcUdpEnd?: number;
+  relaySettingsAction?: "keep" | "replace" | "remove";
+  relayEnabled?: boolean;
+  relayName?: string;
+  relayTarget?: string;
+  relayToken?: string;
+  relayTokenAction?: "keep" | "replace" | "remove";
 }
 
 export interface ConnectionPolicy {
@@ -120,6 +127,11 @@ export class AdminService {
       webRtcEnabled: settings.webRtcEnabled,
       webRtcUdpStart: settings.webRtcUdpStart,
       webRtcUdpEnd: settings.webRtcUdpEnd,
+      relayConfigured: settings.relayConfigured,
+      relayEnabled: settings.relayEnabled,
+      relayName: settings.relayName,
+      relayTarget: settings.relayHost ? formatRelayTarget(settings.relayHost, settings.relayPort) : "",
+      hasRelayToken: Boolean(settings.relayTokenEncrypted),
       internalPort: 3040,
       updatedAt: settings.updatedAt,
     };
@@ -131,6 +143,27 @@ export class AdminService {
       enabled: settings.webRtcEnabled,
       udpPortRange: [settings.webRtcUdpStart, settings.webRtcUdpEnd],
     };
+  }
+
+  hasAccelerationRelaySettings(): boolean {
+    return this.database.getSettings().relayConfigured;
+  }
+
+  getAccelerationRelayOptions(): AccelerationRelayOptions | undefined {
+    const settings = this.database.getSettings();
+    if (!settings.relayConfigured || !settings.relayEnabled || !settings.relayHost || !settings.relayTokenEncrypted) return undefined;
+    try {
+      const token = decryptSecret(settings.relayTokenEncrypted, this.masterSecret);
+      return { relayHost: settings.relayHost, relayPort: settings.relayPort, token };
+    } catch (error: unknown) {
+      this.logger.error({ err: error instanceof Error ? error.message : String(error) }, "Stored acceleration relay token could not be decrypted");
+      return undefined;
+    }
+  }
+
+  getAccelerationRelayName(): string | undefined {
+    const settings = this.database.getSettings();
+    return settings.relayConfigured && settings.relayEnabled && settings.relayName ? settings.relayName : undefined;
   }
 
   updateSettings(input: AdminSettingsInput): void {
@@ -322,6 +355,46 @@ export class AdminService {
     const action = input.passwordAction ?? (input.serverPassword === undefined ? "keep" : "replace");
     if (action === "remove") encryptedPassword = null;
     if (action === "replace") encryptedPassword = input.serverPassword ? encryptSecret(input.serverPassword, this.masterSecret) : null;
+
+    let relayConfigured = current.relayConfigured;
+    let relayEnabled = current.relayEnabled;
+    let relayName = current.relayName;
+    let relayHost = current.relayHost;
+    let relayPort = current.relayPort || DEFAULT_ACCELERATION_RELAY_PORT;
+    let relayTokenEncrypted = current.relayTokenEncrypted;
+    const relaySettingsAction = input.relaySettingsAction ?? "keep";
+    if (relaySettingsAction === "remove") {
+      relayConfigured = true;
+      relayEnabled = false;
+      relayName = "";
+      relayHost = "";
+      relayPort = DEFAULT_ACCELERATION_RELAY_PORT;
+      relayTokenEncrypted = null;
+    } else if (relaySettingsAction === "replace") {
+      const relayTarget = (input.relayTarget ?? "").trim();
+      relayEnabled = input.relayEnabled === true;
+      relayName = (input.relayName ?? "").trim();
+      if (relayName.length > 80) throw new AdminInputError("INVALID_RELAY_NAME", "Relay name must contain 80 characters or fewer");
+      if (relayEnabled && !relayName) throw new AdminInputError("INVALID_RELAY_NAME", "Relay name is required when the relay is enabled");
+      if (relayEnabled && !relayTarget) throw new AdminInputError("INVALID_RELAY_TARGET", "Relay target is required when the relay is enabled");
+      if (relayTarget) {
+        try {
+          const relay = parseTeamSpeakTarget(relayTarget, DEFAULT_ACCELERATION_RELAY_PORT);
+          relayHost = relay.host;
+          relayPort = relay.port;
+        } catch {
+          throw new AdminInputError("INVALID_RELAY_TARGET", "Relay target is invalid");
+        }
+      } else {
+        relayHost = "";
+        relayPort = DEFAULT_ACCELERATION_RELAY_PORT;
+      }
+      const relayTokenAction = input.relayTokenAction ?? (input.relayToken === undefined ? "keep" : "replace");
+      if (relayTokenAction === "remove") relayTokenEncrypted = null;
+      if (relayTokenAction === "replace") relayTokenEncrypted = input.relayToken ? encryptSecret(input.relayToken, this.masterSecret) : null;
+      if (relayEnabled && !relayTokenEncrypted) throw new AdminInputError("INVALID_RELAY_TOKEN", "Relay token is required when the relay is enabled");
+      relayConfigured = true;
+    }
     return {
       siteName,
       welcomeText,
@@ -333,6 +406,12 @@ export class AdminService {
       webRtcEnabled: input.webRtcEnabled,
       webRtcUdpStart,
       webRtcUdpEnd,
+      relayConfigured,
+      relayEnabled,
+      relayName,
+      relayHost,
+      relayPort,
+      relayTokenEncrypted,
     };
   }
 
@@ -365,6 +444,12 @@ export class AdminService {
       webRtcEnabled: settings.webRtcEnabled,
       webRtcUdpStart: settings.webRtcUdpStart,
       webRtcUdpEnd: settings.webRtcUdpEnd,
+      relayConfigured: settings.relayConfigured,
+      relayEnabled: settings.relayEnabled,
+      relayName: settings.relayName,
+      relayHost: settings.relayHost,
+      relayPort: settings.relayPort,
+      relayTokenEncrypted: settings.relayTokenEncrypted,
     };
   }
 
@@ -384,6 +469,12 @@ export class AdminService {
         webRtcEnabled: current.webRtcEnabled,
         webRtcUdpStart: current.webRtcUdpStart,
         webRtcUdpEnd: current.webRtcUdpEnd,
+        relayConfigured: current.relayConfigured,
+        relayEnabled: current.relayEnabled,
+        relayName: current.relayName,
+        relayHost: current.relayHost,
+        relayPort: current.relayPort,
+        relayTokenEncrypted: current.relayTokenEncrypted,
       }, "LEGACY_CONFIG_IMPORTED");
       this.database.setMeta("legacy_config_imported", "1");
       this.database.setMeta("legacy_import_notice_pending", "1");
@@ -395,6 +486,10 @@ export class AdminService {
 
 function hashInviteToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
+}
+
+function formatRelayTarget(host: string, port: number): string {
+  return `${host.includes(":") ? `[${host}]` : host}#${port}`;
 }
 
 export class AdminInputError extends Error {

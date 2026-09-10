@@ -353,7 +353,17 @@ function readSettingsInput(body: Record<string, unknown>): AdminSettingsInput {
     webRtcEnabled: body.webRtcEnabled === true,
     webRtcUdpStart: readOptionalInteger(body, "webRtcUdpStart"),
     webRtcUdpEnd: readOptionalInteger(body, "webRtcUdpEnd"),
+    relaySettingsAction: readRelaySettingsAction(body.relaySettingsAction),
+    relayEnabled: body.relayEnabled === true,
+    relayName: typeof body.relayName === "string" ? body.relayName.slice(0, 80) : undefined,
+    relayTarget: typeof body.relayTarget === "string" ? body.relayTarget.slice(0, 300) : undefined,
+    relayToken: typeof body.relayToken === "string" ? body.relayToken.slice(0, 512) : undefined,
+    relayTokenAction: readPasswordAction(body.relayTokenAction),
   };
+}
+
+function readRelaySettingsAction(value: unknown): "keep" | "replace" | "remove" {
+  return value === "replace" || value === "remove" ? value : "keep";
 }
 
 function readPasswordAction(value: unknown): "keep" | "replace" | "remove" {
