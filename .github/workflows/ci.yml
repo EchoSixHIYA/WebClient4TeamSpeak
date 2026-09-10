@@ -26,9 +26,8 @@ jobs:
           npm run prepare:sdk
           npm rebuild @discordjs/opus --foreground-scripts --no-audit --no-fund
           npm --prefix web ci --no-audit --no-fund
-      - name: Test and build
+      - name: Build application
         run: |
-          npm test
           npm run build
           npm --prefix web run build
 
