@@ -511,7 +511,11 @@ export function readConnectionHistory(logFile: string | undefined, limit: number
           ? Math.max(0, Math.floor((end - Date.parse(start)) / 1000))
           : null),
         status: record.status,
-        reason: record.reason,
+        // Older sessions may only contain a teardown record without a
+        // structured failure code. Keep normal disconnects quiet, but make
+        // an untraceable failed connection explicitly visible as the generic
+        // request-failed message instead of implying a guessed cause.
+        reason: record.reason ?? (record.status === "failed" ? "CONNECTION_FAILED" : null),
       };
     })
     .sort((left, right) => Date.parse(right.disconnectedAt ?? right.startedAt) - Date.parse(left.disconnectedAt ?? left.startedAt))
