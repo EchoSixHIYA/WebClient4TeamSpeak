@@ -7,6 +7,7 @@ const server = await createAccelerationRelayServer({
   host: process.env.WEBSPEAK_ACCELERATION_RELAY_HOST?.trim() || "0.0.0.0",
   port: parsePort(process.env.WEBSPEAK_ACCELERATION_RELAY_PORT, 39087),
   token,
+  allowPrivate: parseBoolean(process.env.WEBSPEAK_ACCELERATION_RELAY_ALLOW_PRIVATE),
 });
 
 console.log(`WebSpeak acceleration relay listening on ${server.host}:${server.port}`);
@@ -22,4 +23,8 @@ function parsePort(value: string | undefined, fallback: number): number {
   const port = value ? Number(value) : fallback;
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invalid WEBSPEAK_ACCELERATION_RELAY_PORT");
   return port;
+}
+
+function parseBoolean(value: string | undefined): boolean {
+  return value === "1" || value?.toLowerCase() === "true";
 }
