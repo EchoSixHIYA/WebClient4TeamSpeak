@@ -1,6 +1,7 @@
 import { WebSocketServer, WebSocket } from "ws";
 import type { IncomingMessage, Server } from "node:http";
 import { createRequire } from "node:module";
+import { isIP } from "node:net";
 import { identityFromString } from "@echosixhiya/teamspeak-client";
 import { DirectorySynchronizer } from "./directory-sync.js";
 import { TSClient, type TSDirectorySnapshot, type TSVoiceData } from "./ts-client.js";
@@ -122,6 +123,7 @@ interface WebClientEntry {
   ws: WebSocket;
   nickname: string;
   rememberIdentity: boolean;
+  clientIp: string;
   target: TeamSpeakTarget;
   acceleration?: AccelerationRelayOptions;
   identityLeaseKey?: string;
@@ -174,6 +176,7 @@ export class VoiceBridge {
         ws.close(4006, "ACCELERATION_UNAVAILABLE");
         return;
       }
+      const clientIp = resolveClientIp(req);
       const webrtcPublicHost = resolveWebRtcPublicHost(req);
       let identity;
       try {
@@ -203,7 +206,7 @@ export class VoiceBridge {
         return;
       }
 
-      this.logger.info({ entryId, nickname, channel: channelName, target: formatTeamSpeakTarget(target) }, "WebClient connecting");
+      this.logger.info({ entryId, nickname, clientIp, channel: channelName, target: formatTeamSpeakTarget(target) }, "WebClient connecting");
       let tsClient: TSClient;
       try {
         tsClient = new TSClient({ target, nickname, serverPassword, defaultChannel: channelName, identity, ...(acceleration ? { acceleration } : {}) }, this.logger);
@@ -221,6 +224,7 @@ export class VoiceBridge {
         ws,
         nickname,
         rememberIdentity: connection.rememberIdentity === true,
+        clientIp,
         target,
         ...(acceleration ? { acceleration } : {}),
         ...(identityLeaseKey ? { identityLeaseKey } : {}),
@@ -321,7 +325,7 @@ export class VoiceBridge {
         reconnectStartedAt = 0;
         if (!wasReconnecting) {
           entry!.eventLog.push({ id: `event-${Date.now().toString(36)}-connected`, kind: "connection", message: "已连接到服务器", timestamp: Date.now() });
-          this.logger.info({ entryId: entry!.id, nickname: entry!.nickname, target: formatTeamSpeakTarget(entry!.target) }, "Web client connected to TeamSpeak");
+          this.logger.info({ entryId: entry!.id, nickname: entry!.nickname, clientIp: entry!.clientIp, target: formatTeamSpeakTarget(entry!.target) }, "Web client connected to TeamSpeak");
         }
         session.transition("connected");
         sendJson({
@@ -759,6 +763,7 @@ export class VoiceBridge {
     this.logger.info({
       entryId: entry.id,
       nickname: entry.nickname,
+      clientIp: entry.clientIp,
       target: formatTeamSpeakTarget(entry.target),
       reason,
       ...(entry.connectionFailureCode ? { failureCode: entry.connectionFailureCode } : {}),
@@ -871,6 +876,30 @@ function resolveWebRtcPublicHost(request: IncomingMessage): string | undefined {
     if (host) return host;
   }
   return undefined;
+}
+
+function resolveClientIp(request: IncomingMessage): string {
+  const candidates = [
+    firstHeader(request.headers["x-forwarded-for"])?.split(",", 1)[0],
+    firstHeader(request.headers["x-real-ip"]),
+    request.socket.remoteAddress,
+  ];
+  for (const candidate of candidates) {
+    const normalized = normalizeClientIp(candidate);
+    if (normalized) return normalized;
+  }
+  return "unknown";
+}
+
+function normalizeClientIp(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  let trimmed = value.trim();
+  if (trimmed.startsWith("[") && trimmed.endsWith("]")) trimmed = trimmed.slice(1, -1);
+  if (trimmed.toLowerCase().startsWith("::ffff:")) {
+    const mapped = trimmed.slice("::ffff:".length);
+    if (isIP(mapped) === 4) trimmed = mapped;
+  }
+  return isIP(trimmed) ? trimmed : undefined;
 }
 
 function firstHeader(value: string | string[] | undefined): string | undefined {

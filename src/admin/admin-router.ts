@@ -10,6 +10,7 @@ import type { AdminSessionSummary } from "../server/voice-bridge.js";
 export interface AdminConnectionRecord {
   id: string;
   nickname: string;
+  clientIp: string;
   target: string;
   startedAt: string;
   connectedAt: string | null;
@@ -430,7 +431,7 @@ function readRecentLogs(logFile: string | undefined, limit: number): AdminLogEnt
       try {
         const raw = JSON.parse(line) as Record<string, unknown>;
         const context: Record<string, string | number | boolean> = {};
-        for (const key of ["component", "entryId", "code", "reason", "attempt", "target", "nickname", "channel", "reconnect", "port"]) {
+        for (const key of ["component", "entryId", "code", "reason", "attempt", "target", "nickname", "clientIp", "channel", "reconnect", "port"]) {
           const value = raw[key];
           if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") context[key] = value;
         }
@@ -460,6 +461,7 @@ export function readConnectionHistory(logFile: string | undefined, limit: number
   const records = new Map<string, {
     id: string;
     nickname: string;
+    clientIp: string;
     target: string;
     startedAt: string | null;
     connectedAt: string | null;
@@ -474,6 +476,7 @@ export function readConnectionHistory(logFile: string | undefined, limit: number
     const current = records.get(entryId) ?? {
       id: entryId,
       nickname: "",
+      clientIp: "",
       target: "",
       startedAt: null,
       connectedAt: null,
@@ -483,8 +486,10 @@ export function readConnectionHistory(logFile: string | undefined, limit: number
       reason: null,
     };
     const nickname = typeof log.raw.nickname === "string" ? log.raw.nickname : "";
+    const clientIp = typeof log.raw.clientIp === "string" ? log.raw.clientIp : "";
     const target = typeof log.raw.target === "string" ? log.raw.target : "";
     if (nickname) current.nickname = nickname;
+    if (clientIp) current.clientIp = clientIp;
     if (target) current.target = target;
     if (log.message === "WebClient connecting") {
       current.startedAt ??= log.timestamp;
@@ -521,6 +526,7 @@ export function readConnectionHistory(logFile: string | undefined, limit: number
       return {
         id: record.id,
         nickname: record.nickname || "—",
+        clientIp: record.clientIp || "—",
         target: record.target || "—",
         startedAt: record.startedAt,
         connectedAt: record.connectedAt,

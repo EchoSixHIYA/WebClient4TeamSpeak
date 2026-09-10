@@ -51,7 +51,7 @@
           </div>
           <div class="operations-grid lower-operations">
             <article class="operation-card diagnostics-card"><header><div><h3>{{ tr('diagnostics') }}</h3><p>{{ tr('diagnosticsLead') }}</p></div><a class="text-link" href="/api/admin/diagnostics/report">{{ tr('downloadReport') }}</a></header><dl class="diagnostic-list"><div><dt>{{ tr('version') }}</dt><dd>{{ operations.diagnostics.version || '—' }}</dd></div><div><dt>{{ tr('runtime') }}</dt><dd>{{ operations.diagnostics.node || '—' }}</dd></div><div><dt>{{ tr('platform') }}</dt><dd>{{ operations.diagnostics.platform || '—' }} / {{ operations.diagnostics.arch || '—' }}</dd></div><div><dt>{{ tr('databaseSchema') }}</dt><dd>v{{ operations.diagnostics.schemaVersion || '—' }}</dd></div><div><dt>{{ tr('createdSessions') }}</dt><dd>{{ operations.diagnostics.createdSessions }}</dd></div></dl><button class="secondary-button" type="button" @click="downloadBackup">{{ tr('exportBackup') }}</button></article>
-            <article class="operation-card logs-card"><header><div><h3>{{ tr('logViewer') }}</h3><p>{{ tr('logViewerLead') }}</p></div><span v-if="!operations.logs.available" class="muted-label">{{ tr('logsUnavailable') }}</span></header><div v-if="operations.logs.sessions.length" class="connection-list"><div class="connection-history-heading"><strong>{{ tr('connectionHistory') }}</strong><small>{{ tr('connectionHistoryLead') }}</small></div><div v-for="record in operations.logs.sessions" :key="record.id" class="connection-row"><div class="connection-person"><strong>{{ record.nickname }}</strong><small>{{ record.target }}</small></div><div class="connection-detail"><span :class="['connection-status', record.status]">{{ connectionStatusLabel(record.status) }}</span><small>{{ record.connectedAt ? tr('connectedAt') : tr('connectionAttemptedAt') }}：{{ formatDate(record.connectedAt || record.startedAt) }}</small><small>{{ tr('duration') }}：{{ formatAge(record.durationSeconds) }}</small><small v-if="record.disconnectedAt">{{ tr('disconnectedAt') }}：{{ formatDate(record.disconnectedAt) }}</small><small v-if="record.reason">{{ tr('failureReason') }}：{{ connectionFailureText(record.reason) }}</small></div></div></div><div v-if="operations.logs.entries.length" class="log-list"><div v-for="(entry, index) in operations.logs.entries" :key="`${entry.timestamp}-${index}`" class="log-row"><span :class="['log-level', entry.level.toLowerCase()]">{{ entry.level }}</span><div><strong>{{ entry.message || '—' }}</strong><small>{{ formatDate(entry.timestamp) }}<template v-if="Object.keys(entry.context).length"> · {{ formatContext(entry.context) }}</template></small></div></div></div><div v-if="!operations.logs.sessions.length && !operations.logs.entries.length" class="operation-empty"><Icon name="activity" :size="22" /><span>{{ tr('noLogs') }}</span></div></article>
+            <article class="operation-card logs-card"><header><div><h3>{{ tr('logViewer') }}</h3><p>{{ tr('logViewerLead') }}</p></div><span v-if="!operations.logs.available" class="muted-label">{{ tr('logsUnavailable') }}</span></header><div v-if="operations.logs.sessions.length" class="connection-list"><div class="connection-history-heading"><strong>{{ tr('connectionHistory') }}</strong><small>{{ tr('connectionHistoryLead') }}</small></div><div v-for="record in operations.logs.sessions" :key="record.id" class="connection-row"><div class="connection-person"><strong>{{ record.nickname }}</strong><small>{{ record.target }}</small><small class="connection-route">{{ connectionRoute(record) }}</small></div><div class="connection-detail"><span :class="['connection-status', record.status]">{{ connectionStatusLabel(record.status) }}</span><small>{{ record.connectedAt ? tr('connectedAt') : tr('connectionAttemptedAt') }}：{{ formatDate(record.connectedAt || record.startedAt) }}</small><small>{{ tr('duration') }}：{{ formatAge(record.durationSeconds) }}</small><small v-if="record.disconnectedAt">{{ tr('disconnectedAt') }}：{{ formatDate(record.disconnectedAt) }}</small><small v-if="record.reason">{{ tr('failureReason') }}：{{ connectionFailureText(record.reason) }}</small></div></div></div><div v-if="operations.logs.entries.length" class="log-list"><div v-for="(entry, index) in operations.logs.entries" :key="`${entry.timestamp}-${index}`" class="log-row"><span :class="['log-level', entry.level.toLowerCase()]">{{ entry.level }}</span><div><strong>{{ entry.message || '—' }}</strong><small>{{ formatDate(entry.timestamp) }}<template v-if="Object.keys(entry.context).length"> · {{ formatContext(entry.context) }}</template></small></div></div></div><div v-if="!operations.logs.sessions.length && !operations.logs.entries.length" class="operation-empty"><Icon name="activity" :size="22" /><span>{{ tr('noLogs') }}</span></div></article>
             <article class="operation-card audit-card"><header><div><h3>{{ tr('audit') }}</h3><p>{{ tr('auditLead') }}</p></div></header><ul class="event-list"><li v-for="event in operations.audit" :key="`${event.event}-${event.createdAt}`"><span><Icon name="check" :size="14" /></span><div><strong>{{ eventName(event.event) }}</strong><small>{{ formatDate(event.createdAt) }}</small></div></li><li v-if="!operations.audit.length" class="empty-event">{{ tr('auditEmpty') }}</li></ul></article>
           </div>
         </section>
@@ -107,7 +107,7 @@ const overview = reactive({ gateway: { version: "", uptimeSeconds: 0 }, teamSpea
 interface AdminSession { id: string; nickname: string; target: string; state: string; createdAt: string; ageSeconds: number; tsClientId: number | null; channelId: string | null; memberCount: number }
 interface ManagedInvite { id: string; target: string; channel: string; expiresAt: string; maxUses: number; useCount: number; createdAt: string; revokedAt: string | null; status: "active" | "expired" | "exhausted" | "revoked" }
 interface AdminLog { timestamp: string | null; level: string; message: string; context: Record<string, string | number | boolean> }
-interface AdminConnectionRecord { id: string; nickname: string; target: string; startedAt: string; connectedAt: string | null; disconnectedAt: string | null; durationSeconds: number; status: "active" | "connecting" | "disconnected" | "failed"; reason: string | null }
+interface AdminConnectionRecord { id: string; nickname: string; clientIp: string; target: string; startedAt: string; connectedAt: string | null; disconnectedAt: string | null; durationSeconds: number | null; status: "active" | "connecting" | "disconnected" | "failed"; reason: string | null }
 const operationsLoading = ref(false);
 const terminatingSession = ref("");
 const inviteForm = reactive({ channel: "", expiresInHours: 24, maxUses: 0 });
@@ -297,6 +297,7 @@ const copy = {
     logViewerLead: "最近的网关日志及用户连接记录，不包含聊天内容。",
     connectionHistory: "用户连接记录",
     connectionHistoryLead: "按用户合并连接、断开与持续时间。",
+    connectionFromTo: "来源 {{ip}} → 目标 {{target}}",
     connectionActive: "连接中",
     connectionConnecting: "准备连接",
     connectionDisconnected: "已断开",
@@ -494,6 +495,7 @@ const copy = {
     logViewerLead: "Recent gateway logs and user connection records; chat content is not recorded.",
     connectionHistory: "User connection records",
     connectionHistoryLead: "Connections, disconnects, and durations grouped by user.",
+    connectionFromTo: "From {{ip}} To {{target}}",
     connectionActive: "Connected",
     connectionConnecting: "Connecting",
     connectionDisconnected: "Disconnected",
@@ -651,6 +653,7 @@ const germanCopy = {
   exportBackup: "Datenbanksicherung exportieren",
   logViewer: "Laufzeitprotokoll",
   connectionHistory: "Verbindungsaufzeichnungen",
+  connectionFromTo: "Von {{ip}} zu {{target}}",
   connectionActive: "Verbunden",
   connectionConnecting: "Verbindung wird hergestellt",
   connectionDisconnected: "Getrennt",
@@ -732,6 +735,7 @@ function formatDate(value: string | null) { return value ? new Intl.DateTimeForm
 function formatUptime(seconds: number) { const hours = Math.floor(seconds / 3600); const minutes = Math.floor((seconds % 3600) / 60); return language.value === "zh" ? `已运行 ${hours} 小时 ${minutes} 分钟` : language.value === "de" ? `${hours} Std. ${minutes} Min. aktiv` : `Up ${hours}h ${minutes}m`; }
 function formatAge(seconds: number | null) { if (seconds == null) return "—"; if (seconds < 60) return language.value === "zh" ? `${seconds} 秒` : language.value === "de" ? `${seconds} Sek.` : `${seconds}s`; const minutes = Math.floor(seconds / 60); if (minutes < 60) return language.value === "zh" ? `${minutes} 分钟` : language.value === "de" ? `${minutes} Min.` : `${minutes}m`; const hours = Math.floor(minutes / 60); return language.value === "zh" ? `${hours} 小时 ${minutes % 60} 分钟` : language.value === "de" ? `${hours} Std. ${minutes % 60} Min.` : `${hours}h ${minutes % 60}m`; }
 function connectionStatusLabel(status: AdminConnectionRecord["status"]) { const names: Record<AdminConnectionRecord["status"], keyof typeof copy.zh> = { active: "connectionActive", connecting: "connectionConnecting", disconnected: "connectionDisconnected", failed: "connectionFailed" }; return tr(names[status]); }
+function connectionRoute(record: AdminConnectionRecord) { return tr("connectionFromTo", { ip: record.clientIp || "—", target: record.target || "—" }); }
 function sessionStateLabel(state: string) { const names: Record<string, { zh: string; en: string; de: string }> = { connecting: { zh: "连接中", en: "Connecting", de: "Verbindung wird hergestellt" }, authenticating: { zh: "认证中", en: "Authenticating", de: "Authentifizierung" }, syncing: { zh: "同步中", en: "Syncing", de: "Synchronisierung" }, connected: { zh: "已连接", en: "Connected", de: "Verbunden" }, interrupted: { zh: "已中断", en: "Interrupted", de: "Unterbrochen" }, reconnecting: { zh: "重连中", en: "Reconnecting", de: "Wiederverbindung" }, disconnecting: { zh: "断开中", en: "Disconnecting", de: "Wird getrennt" }, failed: { zh: "失败", en: "Failed", de: "Fehlgeschlagen" }, idle: { zh: "空闲", en: "Idle", de: "Inaktiv" } }; return names[state]?.[language.value] ?? state; }
 function inviteStatusLabel(status: ManagedInvite["status"]) { const names: Record<ManagedInvite["status"], keyof typeof copy.zh> = { active: "active", expired: "expired", exhausted: "exhausted", revoked: "revoked" }; return tr(names[status]); }
 function formatContext(context: Record<string, string | number | boolean>) { return Object.entries(context).map(([key, value]) => `${key}=${value}`).join(" · "); }
@@ -988,6 +992,7 @@ async function parseResponse(response: Response) { const value = await response.
 .connection-person strong,.connection-person small,.connection-detail small{display:block;overflow-wrap:anywhere;word-break:break-word}
 .connection-person strong{font-size:10px}
 .connection-person small{margin-top:3px;color:#899792;font-size:8px}
+.connection-person .connection-route{color:#5f9189;font-weight:600}
 .connection-detail{display:grid;flex:0 1 58%;justify-items:end;gap:2px;text-align:right}
 .connection-detail small{color:#899792;font-size:8px}
 .connection-status{display:inline-flex;padding:3px 6px;border-radius:999px;color:#236c63;background:#e3f3ef;font-size:8px;font-weight:800}
