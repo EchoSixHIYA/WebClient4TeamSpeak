@@ -12,6 +12,8 @@ export interface AdminConnectionRecord {
   nickname: string;
   clientIp: string;
   target: string;
+  relayName: string | null;
+  relayTarget: string | null;
   startedAt: string;
   connectedAt: string | null;
   disconnectedAt: string | null;
@@ -431,7 +433,7 @@ function readRecentLogs(logFile: string | undefined, limit: number): AdminLogEnt
       try {
         const raw = JSON.parse(line) as Record<string, unknown>;
         const context: Record<string, string | number | boolean> = {};
-        for (const key of ["component", "entryId", "code", "reason", "attempt", "target", "nickname", "clientIp", "channel", "reconnect", "port"]) {
+        for (const key of ["component", "entryId", "code", "reason", "attempt", "target", "nickname", "clientIp", "relayName", "relayTarget", "channel", "reconnect", "port"]) {
           const value = raw[key];
           if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") context[key] = value;
         }
@@ -463,6 +465,8 @@ export function readConnectionHistory(logFile: string | undefined, limit: number
     nickname: string;
     clientIp: string;
     target: string;
+    relayName: string;
+    relayTarget: string;
     startedAt: string | null;
     connectedAt: string | null;
     disconnectedAt: string | null;
@@ -478,6 +482,8 @@ export function readConnectionHistory(logFile: string | undefined, limit: number
       nickname: "",
       clientIp: "",
       target: "",
+      relayName: "",
+      relayTarget: "",
       startedAt: null,
       connectedAt: null,
       disconnectedAt: null,
@@ -488,9 +494,13 @@ export function readConnectionHistory(logFile: string | undefined, limit: number
     const nickname = typeof log.raw.nickname === "string" ? log.raw.nickname : "";
     const clientIp = typeof log.raw.clientIp === "string" ? log.raw.clientIp : "";
     const target = typeof log.raw.target === "string" ? log.raw.target : "";
+    const relayName = typeof log.raw.relayName === "string" ? log.raw.relayName : "";
+    const relayTarget = typeof log.raw.relayTarget === "string" ? log.raw.relayTarget : "";
     if (nickname) current.nickname = nickname;
     if (clientIp) current.clientIp = clientIp;
     if (target) current.target = target;
+    if (relayName) current.relayName = relayName;
+    if (relayTarget) current.relayTarget = relayTarget;
     if (log.message === "WebClient connecting") {
       current.startedAt ??= log.timestamp;
       current.status = "connecting";
@@ -528,6 +538,8 @@ export function readConnectionHistory(logFile: string | undefined, limit: number
         nickname: record.nickname || "—",
         clientIp: record.clientIp || "—",
         target: record.target || "—",
+        relayName: record.relayName || null,
+        relayTarget: record.relayTarget || null,
         startedAt: record.startedAt,
         connectedAt: record.connectedAt,
         disconnectedAt: record.disconnectedAt,

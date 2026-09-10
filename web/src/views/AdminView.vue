@@ -107,7 +107,7 @@ const overview = reactive({ gateway: { version: "", uptimeSeconds: 0 }, teamSpea
 interface AdminSession { id: string; nickname: string; target: string; state: string; createdAt: string; ageSeconds: number; tsClientId: number | null; channelId: string | null; memberCount: number }
 interface ManagedInvite { id: string; target: string; channel: string; expiresAt: string; maxUses: number; useCount: number; createdAt: string; revokedAt: string | null; status: "active" | "expired" | "exhausted" | "revoked" }
 interface AdminLog { timestamp: string | null; level: string; message: string; context: Record<string, string | number | boolean> }
-interface AdminConnectionRecord { id: string; nickname: string; clientIp: string; target: string; startedAt: string; connectedAt: string | null; disconnectedAt: string | null; durationSeconds: number | null; status: "active" | "connecting" | "disconnected" | "failed"; reason: string | null }
+interface AdminConnectionRecord { id: string; nickname: string; clientIp: string; target: string; relayName: string | null; relayTarget: string | null; startedAt: string; connectedAt: string | null; disconnectedAt: string | null; durationSeconds: number | null; status: "active" | "connecting" | "disconnected" | "failed"; reason: string | null }
 const operationsLoading = ref(false);
 const terminatingSession = ref("");
 const inviteForm = reactive({ channel: "", expiresInHours: 24, maxUses: 0 });
@@ -298,6 +298,7 @@ const copy = {
     connectionHistory: "用户连接记录",
     connectionHistoryLead: "按用户合并连接、断开与持续时间。",
     connectionFromTo: "来源 {{ip}} → 目标 {{target}}",
+    connectionViaRelay: "中继 {{relay}}",
     connectionActive: "连接中",
     connectionConnecting: "准备连接",
     connectionDisconnected: "已断开",
@@ -496,6 +497,7 @@ const copy = {
     connectionHistory: "User connection records",
     connectionHistoryLead: "Connections, disconnects, and durations grouped by user.",
     connectionFromTo: "From {{ip}} To {{target}}",
+    connectionViaRelay: "Via relay {{relay}}",
     connectionActive: "Connected",
     connectionConnecting: "Connecting",
     connectionDisconnected: "Disconnected",
@@ -654,6 +656,7 @@ const germanCopy = {
   logViewer: "Laufzeitprotokoll",
   connectionHistory: "Verbindungsaufzeichnungen",
   connectionFromTo: "Von {{ip}} zu {{target}}",
+  connectionViaRelay: "Über Relay {{relay}}",
   connectionActive: "Verbunden",
   connectionConnecting: "Verbindung wird hergestellt",
   connectionDisconnected: "Getrennt",
@@ -735,7 +738,12 @@ function formatDate(value: string | null) { return value ? new Intl.DateTimeForm
 function formatUptime(seconds: number) { const hours = Math.floor(seconds / 3600); const minutes = Math.floor((seconds % 3600) / 60); return language.value === "zh" ? `已运行 ${hours} 小时 ${minutes} 分钟` : language.value === "de" ? `${hours} Std. ${minutes} Min. aktiv` : `Up ${hours}h ${minutes}m`; }
 function formatAge(seconds: number | null) { if (seconds == null) return "—"; if (seconds < 60) return language.value === "zh" ? `${seconds} 秒` : language.value === "de" ? `${seconds} Sek.` : `${seconds}s`; const minutes = Math.floor(seconds / 60); if (minutes < 60) return language.value === "zh" ? `${minutes} 分钟` : language.value === "de" ? `${minutes} Min.` : `${minutes}m`; const hours = Math.floor(minutes / 60); return language.value === "zh" ? `${hours} 小时 ${minutes % 60} 分钟` : language.value === "de" ? `${hours} Std. ${minutes % 60} Min.` : `${hours}h ${minutes % 60}m`; }
 function connectionStatusLabel(status: AdminConnectionRecord["status"]) { const names: Record<AdminConnectionRecord["status"], keyof typeof copy.zh> = { active: "connectionActive", connecting: "connectionConnecting", disconnected: "connectionDisconnected", failed: "connectionFailed" }; return tr(names[status]); }
-function connectionRoute(record: AdminConnectionRecord) { return tr("connectionFromTo", { ip: record.clientIp || "—", target: record.target || "—" }); }
+function connectionRoute(record: AdminConnectionRecord) {
+  const route = tr("connectionFromTo", { ip: record.clientIp || "—", target: record.target || "—" });
+  if (!record.relayName && !record.relayTarget) return route;
+  const relay = [record.relayName, record.relayTarget].filter(Boolean).join(" · ") || "—";
+  return `${route} · ${tr("connectionViaRelay", { relay })}`;
+}
 function sessionStateLabel(state: string) { const names: Record<string, { zh: string; en: string; de: string }> = { connecting: { zh: "连接中", en: "Connecting", de: "Verbindung wird hergestellt" }, authenticating: { zh: "认证中", en: "Authenticating", de: "Authentifizierung" }, syncing: { zh: "同步中", en: "Syncing", de: "Synchronisierung" }, connected: { zh: "已连接", en: "Connected", de: "Verbunden" }, interrupted: { zh: "已中断", en: "Interrupted", de: "Unterbrochen" }, reconnecting: { zh: "重连中", en: "Reconnecting", de: "Wiederverbindung" }, disconnecting: { zh: "断开中", en: "Disconnecting", de: "Wird getrennt" }, failed: { zh: "失败", en: "Failed", de: "Fehlgeschlagen" }, idle: { zh: "空闲", en: "Idle", de: "Inaktiv" } }; return names[state]?.[language.value] ?? state; }
 function inviteStatusLabel(status: ManagedInvite["status"]) { const names: Record<ManagedInvite["status"], keyof typeof copy.zh> = { active: "active", expired: "expired", exhausted: "exhausted", revoked: "revoked" }; return tr(names[status]); }
 function formatContext(context: Record<string, string | number | boolean>) { return Object.entries(context).map(([key, value]) => `${key}=${value}`).join(" · "); }

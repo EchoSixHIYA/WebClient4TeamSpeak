@@ -125,6 +125,7 @@ interface WebClientEntry {
   rememberIdentity: boolean;
   clientIp: string;
   target: TeamSpeakTarget;
+  accelerationRelay?: { name: string; target: string };
   acceleration?: AccelerationRelayOptions;
   identityLeaseKey?: string;
   webrtcPublicHost?: string;
@@ -206,7 +207,14 @@ export class VoiceBridge {
         return;
       }
 
-      this.logger.info({ entryId, nickname, clientIp, channel: channelName, target: formatTeamSpeakTarget(target) }, "WebClient connecting");
+      this.logger.info({
+        entryId,
+        nickname,
+        clientIp,
+        channel: channelName,
+        target: formatTeamSpeakTarget(target),
+        ...(acceleration ? { relayName: acceleration.name, relayTarget: formatTeamSpeakTarget({ host: acceleration.relayHost, port: acceleration.relayPort }) } : {}),
+      }, "WebClient connecting");
       let tsClient: TSClient;
       try {
         tsClient = new TSClient({ target, nickname, serverPassword, defaultChannel: channelName, identity, ...(acceleration ? { acceleration } : {}) }, this.logger);
@@ -226,6 +234,7 @@ export class VoiceBridge {
         rememberIdentity: connection.rememberIdentity === true,
         clientIp,
         target,
+        ...(acceleration ? { accelerationRelay: { name: acceleration.name, target: formatTeamSpeakTarget({ host: acceleration.relayHost, port: acceleration.relayPort }) } } : {}),
         ...(acceleration ? { acceleration } : {}),
         ...(identityLeaseKey ? { identityLeaseKey } : {}),
         ...(webrtcPublicHost ? { webrtcPublicHost } : {}),
@@ -325,7 +334,13 @@ export class VoiceBridge {
         reconnectStartedAt = 0;
         if (!wasReconnecting) {
           entry!.eventLog.push({ id: `event-${Date.now().toString(36)}-connected`, kind: "connection", message: "已连接到服务器", timestamp: Date.now() });
-          this.logger.info({ entryId: entry!.id, nickname: entry!.nickname, clientIp: entry!.clientIp, target: formatTeamSpeakTarget(entry!.target) }, "Web client connected to TeamSpeak");
+          this.logger.info({
+            entryId: entry!.id,
+            nickname: entry!.nickname,
+            clientIp: entry!.clientIp,
+            target: formatTeamSpeakTarget(entry!.target),
+            ...(entry!.accelerationRelay ? { relayName: entry!.accelerationRelay.name, relayTarget: entry!.accelerationRelay.target } : {}),
+          }, "Web client connected to TeamSpeak");
         }
         session.transition("connected");
         sendJson({
@@ -765,6 +780,7 @@ export class VoiceBridge {
       nickname: entry.nickname,
       clientIp: entry.clientIp,
       target: formatTeamSpeakTarget(entry.target),
+      ...(entry.accelerationRelay ? { relayName: entry.accelerationRelay.name, relayTarget: entry.accelerationRelay.target } : {}),
       reason,
       ...(entry.connectionFailureCode ? { failureCode: entry.connectionFailureCode } : {}),
       durationSeconds: Math.max(0, Math.floor((Date.now() - entry.session.createdAt) / 1000)),
@@ -799,13 +815,13 @@ export class VoiceBridge {
     return typeof configured === "function" ? configured() : configured;
   }
 
-  private getAccelerationOptions(relayId = ""): AccelerationRelayOptions | undefined {
+  private getAccelerationOptions(relayId = ""): ConfiguredAccelerationRelay | undefined {
     const configured = this.options.acceleration;
     const relays = typeof configured === "function" ? configured() : configured;
     if (!relays?.length) return undefined;
     const selected = relayId ? relays.find((relay) => relay.id === relayId) : relays[0];
     if (!selected) return undefined;
-    return { relayHost: selected.relayHost, relayPort: selected.relayPort, token: selected.token };
+    return selected;
   }
 
   private async handleWebRtcOffer(
