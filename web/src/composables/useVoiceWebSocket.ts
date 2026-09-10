@@ -93,7 +93,7 @@ export function useVoiceWebSocket() {
   const serverEvents = reactive<ServerEvent[]>([]);
   const pokeNotifications = reactive<{ id: string; invokerId: number; invokerUid: string; invokerName: string; message: string; timestamp: number }[]>([]);
   let connectionSequence = 0;
-  let lastConnection: { target: string; channel: string; nickname: string; serverPassword: string; identity?: string; rememberIdentity: boolean } | null = null;
+  let lastConnection: { target: string; channel: string; nickname: string; serverPassword: string; identity?: string; rememberIdentity: boolean; accelerated: boolean } | null = null;
   let latencyProbeSequence = 0;
   const pendingLatencyProbes = new Map<string, { startedAt: number; resolve: (result: LatencyProbeResult | null) => void; timer: ReturnType<typeof setTimeout> }>();
   let webrtcPeer: RTCPeerConnection | null = null;
@@ -1088,9 +1088,9 @@ export function useVoiceWebSocket() {
     clearRemotePlayback(clientId);
   }
 
-  function connect(target: string, channel: string, nickname: string, serverPassword = "", identity = "", rememberIdentity = false, inviteToken = ""): void {
+  function connect(target: string, channel: string, nickname: string, serverPassword = "", identity = "", rememberIdentity = false, inviteToken = "", accelerated = false): void {
     disconnect(true);
-    lastConnection = { target, channel, nickname, serverPassword, ...(identity ? { identity } : {}), rememberIdentity };
+    lastConnection = { target, channel, nickname, serverPassword, ...(identity ? { identity } : {}), rememberIdentity, accelerated };
     identityMaterial.value = identity;
     const sequence = ++connectionSequence;
     state.error = "";
@@ -1099,15 +1099,15 @@ export function useVoiceWebSocket() {
     state.reconnecting = false;
     state.reconnectAttempt = 0;
     state.reconnectFailed = false;
-    void openTicketedConnection(sequence, target, channel, nickname, serverPassword, inviteToken);
+    void openTicketedConnection(sequence, target, channel, nickname, serverPassword, inviteToken, accelerated);
   }
 
-  async function openTicketedConnection(sequence: number, target: string, channel: string, nickname: string, serverPassword: string, inviteToken: string): Promise<void> {
+  async function openTicketedConnection(sequence: number, target: string, channel: string, nickname: string, serverPassword: string, inviteToken: string, accelerated: boolean): Promise<void> {
     try {
       const response = await fetch("/api/join-ticket", {
         method: "POST",
         headers: { "content-type": "application/json", accept: "application/json" },
-        body: JSON.stringify({ target, nickname, channel, serverPassword, ...(inviteToken ? { invite: inviteToken } : {}), ...(lastConnection?.rememberIdentity && lastConnection.identity ? { identity: lastConnection.identity } : {}), ...(lastConnection?.rememberIdentity ? { rememberIdentity: true } : {}) }),
+        body: JSON.stringify({ target, nickname, channel, serverPassword, ...(inviteToken ? { invite: inviteToken } : {}), ...(accelerated ? { accelerated: true } : {}), ...(lastConnection?.rememberIdentity && lastConnection.identity ? { identity: lastConnection.identity } : {}), ...(lastConnection?.rememberIdentity ? { rememberIdentity: true } : {}) }),
       });
       const result = await response.json().catch(() => ({})) as { ticket?: unknown; code?: unknown };
       if (!response.ok || typeof result.ticket !== "string") {
@@ -1153,7 +1153,10 @@ export function useVoiceWebSocket() {
       // Prefer the close code over the generic WebSocket error event. The
       // gateway uses a dedicated code when a remembered identity is already
       // active in another browser page.
-      if (event.code !== 1000 && !state.reconnectFailed) state.error = closeReason(event.code);
+      if (event.code !== 1000 && !state.reconnectFailed) {
+        state.errorCode = closeErrorCode(event.code, event.reason);
+        state.error = closeReason(event.code, event.reason);
+      }
       stopWebRtcTransport();
       stopMicrophone();
       whisperTargetIds.clear();
@@ -1168,12 +1171,39 @@ export function useVoiceWebSocket() {
   function joinTicketReason(code: string): string {
     if (code === "NOT_INITIALIZED") return "WebSpeak 尚未完成首次配置";
     if (code === "TARGET_NOT_ALLOWED") return "此 TeamSpeak 服务器地址不允许连接";
+    if (code === "ACCELERATION_UNAVAILABLE") return "大陆节点智能加速尚未在当前网关配置";
     if (code === "INVALID_NICKNAME") return "请输入有效的昵称";
     if (code === "INVITE_INVALID") return "邀请链接已失效或已被撤销";
     return "连接服务器失败，请检查邀请链接或服务器状态";
   }
 
-  function closeReason(code: number): string {
+  function closeErrorCode(code: number, reason = ""): string {
+    const known = new Set(["INVALID_TARGET", "UNREACHABLE", "TIMEOUT", "SERVER_PASSWORD_REQUIRED", "INVALID_SERVER_PASSWORD", "PROTOCOL_NEGOTIATION_FAILED", "SERVER_REJECTED", "CONNECTION_FAILED"]);
+    if (known.has(reason)) return reason;
+    if (code === 4002) return "INVALID_TARGET";
+    if (code === 4004) return "SERVER_REJECTED";
+    if (code === 4005) return "IDENTITY_IN_USE";
+    return "CONNECTION_FAILED";
+  }
+
+  function connectionFailureMessage(code: string): string {
+    const messages: Record<string, string> = {
+      INVALID_TARGET: "TeamSpeak 服务器地址无效",
+      UNREACHABLE: "无法到达 TeamSpeak 服务器，请检查网络或地址",
+      TIMEOUT: "连接 TeamSpeak 超时，请检查网络或服务器状态",
+      SERVER_PASSWORD_REQUIRED: "该服务器需要密码，请输入密码后重试",
+      INVALID_SERVER_PASSWORD: "服务器密码错误，请重新输入",
+      PROTOCOL_NEGOTIATION_FAILED: "TeamSpeak 协议协商失败",
+      SERVER_REJECTED: "TeamSpeak 服务器拒绝了连接",
+      IDENTITY_IN_USE: "此 TeamSpeak 身份已在另一个浏览器页面使用，请关闭另一条连接或取消“保持身份”后重试",
+      CONNECTION_FAILED: "TeamSpeak 连接失败，请检查地址、网络或服务器状态",
+    };
+    return messages[code] ?? "连接已断开";
+  }
+
+  function closeReason(code: number, reason = ""): string {
+    const failureCode = closeErrorCode(code, reason);
+    if (failureCode !== "CONNECTION_FAILED") return connectionFailureMessage(failureCode);
     if (code === 4002) return "TeamSpeak 服务器地址无效";
     if (code === 4003) return "TeamSpeak 服务器连接失败";
     if (code === 4004) return "服务器当前已满，请稍后重试";
@@ -1370,7 +1400,8 @@ export function useVoiceWebSocket() {
         state.connecting = false;
         state.reconnecting = false;
         state.reconnectFailed = true;
-        state.error = "连接已中断，无法自动恢复";
+        state.errorCode = typeof msg.code === "string" ? msg.code : "CONNECTION_FAILED";
+        state.error = connectionFailureMessage(state.errorCode);
         whisperTargetIds.clear();
         whisperActive.value = false;
         break;
@@ -1498,7 +1529,7 @@ export function useVoiceWebSocket() {
 
   function reconnectNow(): void {
     if (!lastConnection || state.connecting) return;
-    connect(lastConnection.target, lastConnection.channel, lastConnection.nickname, lastConnection.serverPassword, lastConnection.rememberIdentity ? identityMaterial.value || lastConnection.identity : "", lastConnection.rememberIdentity);
+    connect(lastConnection.target, lastConnection.channel, lastConnection.nickname, lastConnection.serverPassword, lastConnection.rememberIdentity ? identityMaterial.value || lastConnection.identity : "", lastConnection.rememberIdentity, "", lastConnection.accelerated);
   }
 
   function setMicrophoneMuted(muted: boolean): void {

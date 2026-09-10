@@ -353,7 +353,17 @@ function readSettingsInput(body: Record<string, unknown>): AdminSettingsInput {
     webRtcEnabled: body.webRtcEnabled === true,
     webRtcUdpStart: readOptionalInteger(body, "webRtcUdpStart"),
     webRtcUdpEnd: readOptionalInteger(body, "webRtcUdpEnd"),
+    relaySettingsAction: readRelaySettingsAction(body.relaySettingsAction),
+    relayEnabled: body.relayEnabled === true,
+    relayName: typeof body.relayName === "string" ? body.relayName.slice(0, 80) : undefined,
+    relayTarget: typeof body.relayTarget === "string" ? body.relayTarget.slice(0, 300) : undefined,
+    relayToken: typeof body.relayToken === "string" ? body.relayToken.slice(0, 512) : undefined,
+    relayTokenAction: readPasswordAction(body.relayTokenAction),
   };
+}
+
+function readRelaySettingsAction(value: unknown): "keep" | "replace" | "remove" {
+  return value === "replace" || value === "remove" ? value : "keep";
 }
 
 function readPasswordAction(value: unknown): "keep" | "replace" | "remove" {
@@ -477,7 +487,9 @@ export function readConnectionHistory(logFile: string | undefined, limit: number
         : current.connectedAt
           ? Math.max(0, Math.floor((Date.parse(log.timestamp) - Date.parse(current.connectedAt)) / 1000))
           : null;
-      current.reason = typeof log.raw.reason === "string" ? log.raw.reason : null;
+      current.reason = typeof log.raw.failureCode === "string"
+        ? log.raw.failureCode
+        : typeof log.raw.reason === "string" ? log.raw.reason : null;
       current.status = current.connectedAt ? "disconnected" : "failed";
     }
     records.set(entryId, current);
@@ -499,7 +511,11 @@ export function readConnectionHistory(logFile: string | undefined, limit: number
           ? Math.max(0, Math.floor((end - Date.parse(start)) / 1000))
           : null),
         status: record.status,
-        reason: record.reason,
+        // Older sessions may only contain a teardown record without a
+        // structured failure code. Keep normal disconnects quiet, but make
+        // an untraceable failed connection explicitly visible as the generic
+        // request-failed message instead of implying a guessed cause.
+        reason: record.reason ?? (record.status === "failed" ? "CONNECTION_FAILED" : null),
       };
     })
     .sort((left, right) => Date.parse(right.disconnectedAt ?? right.startedAt) - Date.parse(left.disconnectedAt ?? left.startedAt))

@@ -49,6 +49,12 @@ async function main() {
     voiceBridgeOptions: {
       joinTickets,
       webRtc: () => adminService.getWebRtcAudioOptions(),
+      // The public gateway only uses the relay configuration explicitly
+      // saved in the admin console. Environment variables belong to the
+      // standalone relay process and must never make the relay option appear
+      // in the visitor UI after an administrator disables it.
+      acceleration: () => adminService.getAccelerationRelayOptions(),
+      accelerationName: () => adminService.getAccelerationRelayName(),
     },
     adminService,
     logger,

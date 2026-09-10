@@ -41,6 +41,7 @@
               <label class="field-label" for="server-port"><span>{{ t('serverPort') }}</span><div class="field-wrap"><Icon name="hash" :size="17" /><input id="server-port" v-model="serverPort" inputmode="numeric" type="text" maxlength="5" :placeholder="t('serverPortPlaceholder')" /></div></label>
             </div>
             <p v-if="accessMode === 'open'" class="field-hint">{{ t('serverAddressHint') }}</p>
+            <label v-if="accelerationAvailable" class="acceleration-choice"><input v-model="accelerationEnabled" type="checkbox" /><span><strong>{{ accelerationDisplayName }}</strong><small>{{ t('relayAccelerationHint') }}</small></span></label>
             <div v-if="accessMode === 'open' && (favoriteServers.length || recentServers.length)" class="local-servers">
               <div v-if="favoriteServers.length" class="local-server-group"><span>{{ t('favoriteServers') }}</span><button v-for="favorite in favoriteServers" :key="favorite.id" type="button" @click="selectLocalServer(favorite.address, favorite.nickname)">{{ favorite.label }}</button></div>
               <div v-if="recentServers.length" class="local-server-group"><span>{{ t('recentServers') }}</span><button v-for="recent in recentServers" :key="recent.id" type="button" @click="selectLocalServer(recent.address, recent.nickname)">{{ recent.address }}</button></div>
@@ -271,6 +272,22 @@
       </section>
     </div>
 
+    <!-- TeamSpeak server password modal -->
+    <div v-if="serverPasswordDialog.open" class="modal-backdrop channel-password-backdrop" @click.self="cancelServerPassword">
+      <section class="channel-password-modal server-password-modal" role="dialog" aria-modal="true" :aria-labelledby="'server-password-title'" @click.stop>
+        <button type="button" class="qq-modal-close" :aria-label="t('close')" :title="t('close')" @click="cancelServerPassword"><Icon name="close" :size="19" /></button>
+        <div class="channel-password-icon"><Icon name="lock" :size="22" /></div>
+        <span class="card-kicker">{{ t('serverPasswordPrompt') }}</span>
+        <h2 id="server-password-title">{{ t('serverPasswordTitle') }}</h2>
+        <p>{{ serverPasswordDialog.errorCode === 'INVALID_SERVER_PASSWORD' ? t('serverPasswordInvalidLead') : t('serverPasswordRequiredLead') }}</p>
+        <form class="channel-password-form" @submit.prevent="submitServerPassword">
+          <label class="field-label" for="retry-server-password-input">{{ t('serverPasswordPrompt') }}</label>
+          <div class="field-wrap"><Icon name="lock" :size="17" /><input id="retry-server-password-input" v-model="serverPasswordDialog.password" type="password" autocomplete="current-password" :placeholder="t('serverPasswordRetryPlaceholder')" autofocus /></div>
+          <div class="channel-password-actions"><button type="button" class="text-button" @click="cancelServerPassword">{{ t('channelPasswordCancel') }}</button><button type="submit" class="primary-button channel-password-submit" :disabled="!serverPasswordDialog.password"><span>{{ t('serverPasswordRetry') }}</span><Icon name="chevron-right" :size="17" /></button></div>
+        </form>
+      </section>
+    </div>
+
     <!-- Audio settings modal -->
     <div v-if="settingsOpen" class="modal-backdrop" @click.self="settingsOpen = false">
       <section class="settings-modal" role="dialog" aria-modal="true" :aria-labelledby="'settings-title'">
@@ -378,7 +395,10 @@ const initialized = ref(false);
 const siteName = ref("WebSpeak");
 const welcomeTextZh = ref("");
 const welcomeTextEn = ref("");
-const appVersion = ref("0.1.2");
+const appVersion = ref("0.2.0-preview");
+const accelerationAvailable = ref(false);
+const accelerationName = ref("");
+const accelerationEnabled = ref(false);
 const browserError = ref("");
 const serverConfigLoading = ref(true);
 const memberQuery = ref("");
@@ -386,6 +406,7 @@ const messageDraft = ref("");
 const selectedChannelId = ref("");
 const settingsOpen = ref(false);
 const channelPasswordDialog = reactive({ open: false, channelId: "", password: "", error: "", submitting: false });
+const serverPasswordDialog = reactive({ open: false, password: "", errorCode: "" });
 const qqModalOpen = ref(false);
 const qqJoinUrl = "http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=yhumUMDD9PmyYFWdXWUb_x7hM5trFQY8&authKey=Pw3HBGT7GwMinTQnuFGfnpf0aRSzXOJKcAiujVP1%2BXMpjheAKrncTRivicBJxpjV&noverify=0&group_code=869500475";
 const audioSettingsError = ref("");
@@ -418,6 +439,7 @@ const themeMode = ref<ThemeMode>(getStoredTheme());
 const themeIcon = computed(() => isDarkTheme(themeMode.value) ? "sun" : "moon");
 const themeLabel = computed(() => isDarkTheme(themeMode.value) ? t("switchToLightTheme") : t("switchToDarkTheme"));
 const localizedWelcomeText = computed(() => (language.value === "en" ? welcomeTextEn.value : welcomeTextZh.value) || t("joinDescription"));
+const accelerationDisplayName = computed(() => accelerationName.value || (language.value === "zh" ? "中继加速" : language.value === "de" ? "Relay-Beschleunigung" : "Relay acceleration"));
 applyTheme(themeMode.value);
 const translations: Record<string, Record<string, string>> = {
   zh: {
@@ -454,6 +476,7 @@ const translations: Record<string, Record<string, string>> = {
     serverPort: "语音端口",
     serverPortPlaceholder: "9987",
     serverAddressHint: "这是网关服务器连接的 TeamSpeak 地址和端口，不是浏览器直接连接地址。",
+    relayAccelerationHint: "通过已配置的中继服务器转发，适合直连不稳定或被拒绝的服务器。",
     nickname: "你的昵称",
     nicknamePlaceholder: "例如：Alex Rivera",
     targetChannel: "目标频道",
@@ -509,6 +532,12 @@ const translations: Record<string, Record<string, string>> = {
     accompanimentUnsupported: "当前浏览器不支持伴奏共享",
     serverPassword: "服务器密码",
     optionalPassword: "没有密码可留空",
+    serverPasswordTitle: "服务器需要密码",
+    serverPasswordPrompt: "输入服务器密码",
+    serverPasswordRequiredLead: "该服务器需要密码，输入密码后重试。",
+    serverPasswordInvalidLead: "服务器密码不正确，请重新输入后重试。",
+    serverPasswordRetry: "输入密码并重试",
+    serverPasswordRetryPlaceholder: "请输入服务器密码",
     switchChannel: "切换频道",
     searchChannels: "搜索频道",
     voiceChannels: "语音频道",
@@ -711,6 +740,7 @@ const translations: Record<string, Record<string, string>> = {
     serverPort: "Voice port",
     serverPortPlaceholder: "9987",
     serverAddressHint: "This is the TeamSpeak address and port reached by the gateway, not a direct browser connection.",
+    relayAccelerationHint: "Route this connection through the configured relay when a direct path is unstable or blocked.",
     nickname: "Your nickname",
     nicknamePlaceholder: "e.g. Alex Rivera",
     targetChannel: "Target channel",
@@ -766,6 +796,12 @@ const translations: Record<string, Record<string, string>> = {
     accompanimentUnsupported: "This browser does not support accompaniment sharing",
     serverPassword: "Server password",
     optionalPassword: "Leave blank if not required",
+    serverPasswordTitle: "Server password required",
+    serverPasswordPrompt: "Enter server password",
+    serverPasswordRequiredLead: "This TeamSpeak server requires a password. Enter it and try again.",
+    serverPasswordInvalidLead: "The server password was rejected. Enter it again and retry.",
+    serverPasswordRetry: "Enter password and retry",
+    serverPasswordRetryPlaceholder: "Enter the server password",
     switchChannel: "Switch channel",
     searchChannels: "Search channels",
     voiceChannels: "Voice channels",
@@ -971,6 +1007,7 @@ translations.de = {
   serverPort: "Sprachport",
   serverPortPlaceholder: "9987",
   serverAddressHint: "Dies ist die TeamSpeak-Adresse und der Port, die vom Gateway erreicht werden – keine direkte Browseradresse.",
+   relayAccelerationHint: "Leitet diese Verbindung über den konfigurierten Relay – für direkte Verbindungen mit Instabilität oder Ablehnung.",
   nickname: "Dein Name",
   nicknamePlaceholder: "z. B. Alex Rivera",
   targetChannel: "Zielkanal",
@@ -1026,6 +1063,12 @@ translations.de = {
   accompanimentUnsupported: "Dieser Browser unterstützt das Teilen von Begleitung nicht.",
   serverPassword: "Serverpasswort",
   optionalPassword: "Leer lassen, wenn kein Passwort erforderlich ist",
+  serverPasswordTitle: "Serverpasswort erforderlich",
+  serverPasswordPrompt: "Serverpasswort eingeben",
+  serverPasswordRequiredLead: "Dieser TeamSpeak-Server benötigt ein Passwort. Gib es ein und versuche es erneut.",
+  serverPasswordInvalidLead: "Das Serverpasswort wurde abgelehnt. Gib es erneut ein und versuche es noch einmal.",
+  serverPasswordRetry: "Passwort eingeben und erneut versuchen",
+  serverPasswordRetryPlaceholder: "Serverpasswort eingeben",
   switchChannel: "Kanal wechseln",
   searchChannels: "Kanäle suchen",
   voiceChannels: "Sprachkanäle",
@@ -1232,6 +1275,13 @@ function localizedMessage(message: string) {
     "此 TeamSpeak 身份已在另一个浏览器页面使用，请关闭另一条连接或取消“保持身份”后重试": "This TeamSpeak identity is already used by another browser page. Close that connection or clear ‘Remember identity’ and try again",
     "TeamSpeak 服务器地址无效": "The TeamSpeak server address is invalid",
     "TeamSpeak 服务器连接失败": "Could not connect to the TeamSpeak server",
+    "无法到达 TeamSpeak 服务器，请检查网络或地址": "The TeamSpeak server is unreachable. Check the network or address",
+    "连接 TeamSpeak 超时，请检查网络或服务器状态": "The TeamSpeak connection timed out. Check the network or server status",
+    "该服务器需要密码，请输入密码后重试": "This server requires a password. Enter it and try again",
+    "服务器密码错误，请重新输入": "The server password is incorrect. Enter it again",
+    "TeamSpeak 协议协商失败": "TeamSpeak protocol negotiation failed",
+    "TeamSpeak 服务器拒绝了连接": "The TeamSpeak server rejected the connection",
+    "TeamSpeak 连接失败，请检查地址、网络或服务器状态": "TeamSpeak connection failed. Check the address, network, or server status",
     "服务器当前已满，请稍后重试": "The server is full. Try again shortly",
     "WebSpeak 尚未配置 TeamSpeak 目标。": "The WebSpeak TeamSpeak target has not been configured",
     "此 TeamSpeak 服务器地址不允许连接": "This TeamSpeak server address is not allowed",
@@ -1391,6 +1441,14 @@ watch(() => voiceState.errorCode, (code) => {
   channelPasswordDialog.submitting = false;
   clearError();
   void nextTick(() => document.getElementById("channel-password-input")?.focus());
+});
+watch(() => voiceState.errorCode, (code) => {
+  if (code !== "SERVER_PASSWORD_REQUIRED" && code !== "INVALID_SERVER_PASSWORD") return;
+  serverPasswordDialog.open = true;
+  serverPasswordDialog.password = "";
+  serverPasswordDialog.errorCode = code;
+  clearError();
+  void nextTick(() => document.getElementById("retry-server-password-input")?.focus());
 });
 watch(() => voiceState.channelSwitchedChannelId, (channelId) => {
   if (!channelPasswordDialog.open || !channelId || channelId !== channelPasswordDialog.channelId) return;
@@ -1560,13 +1618,32 @@ function doConnect() {
     serverPort.value = serverPort.value.trim();
   }
   selectedChannelId.value = "";
-  connect(currentServerTarget(), channel.value.trim(), nickname.value, accessMode.value === "open" ? serverPassword.value : "", rememberIdentity.value ? identityMaterial.value : "", rememberIdentity.value, inviteToken);
+  // Keep the password field available for a retry even when the target is
+  // administrator-managed. The gateway still controls the target in fixed
+  // mode and only accepts a non-empty retry password for that target.
+  connect(currentServerTarget(), channel.value.trim(), nickname.value, serverPassword.value, rememberIdentity.value ? identityMaterial.value : "", rememberIdentity.value, inviteToken, accelerationEnabled.value);
 }
 
 function doDisconnect() {
   disconnect();
   selectedChannelId.value = "";
   showToast(t("leftToast"));
+}
+
+function submitServerPassword() {
+  if (!serverPasswordDialog.open || !serverPasswordDialog.password) return;
+  serverPassword.value = serverPasswordDialog.password;
+  serverPasswordDialog.open = false;
+  serverPasswordDialog.password = "";
+  serverPasswordDialog.errorCode = "";
+  doConnect();
+}
+
+function cancelServerPassword() {
+  serverPasswordDialog.open = false;
+  serverPasswordDialog.password = "";
+  serverPasswordDialog.errorCode = "";
+  clearError();
 }
 
 function selectChannel(item: TreeChannel) {
@@ -1671,13 +1748,16 @@ async function loadPublicConfig() {
   try {
     const response = await fetch("/api/public-config", { headers: { accept: "application/json" } });
     if (!response.ok) return;
-    const config = await response.json() as { version?: unknown; initialized?: unknown; siteName?: unknown; welcomeText?: unknown; welcomeTextEn?: unknown; accessMode?: unknown; target?: unknown };
+    const config = await response.json() as { version?: unknown; initialized?: unknown; siteName?: unknown; welcomeText?: unknown; welcomeTextEn?: unknown; accessMode?: unknown; target?: unknown; accelerationAvailable?: unknown; accelerationName?: unknown };
     if (typeof config.version === "string" && config.version.trim()) appVersion.value = config.version.trim();
     initialized.value = config.initialized === true;
     if (typeof config.siteName === "string" && config.siteName.trim()) siteName.value = config.siteName.trim();
     if (typeof config.welcomeText === "string") welcomeTextZh.value = config.welcomeText;
     if (typeof config.welcomeTextEn === "string") welcomeTextEn.value = config.welcomeTextEn;
     accessMode.value = config.accessMode === "open" ? "open" : "fixed";
+    accelerationAvailable.value = config.accelerationAvailable === true;
+    accelerationName.value = typeof config.accelerationName === "string" ? config.accelerationName.trim() : "";
+    if (!accelerationAvailable.value) accelerationEnabled.value = false;
     const hasInviteTarget = query.has("server") || query.has("target") || query.has("tsHost") || query.has("tsPort");
     if (!hasInviteTarget && typeof config.target === "string" && config.target.trim()) {
       const target = splitTeamSpeakTarget(config.target);
@@ -2110,11 +2190,18 @@ function stopWhisperTalk(): void {
 .reconnect-actions { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; }
 .reconnect-actions .secondary-button { min-height: 34px; padding-inline: 13px; }
 .remember-identity { display: flex; align-items: flex-start; gap: 9px; margin-top: 8px; color: #465650; cursor: pointer; }
+.acceleration-choice { display: flex; align-items: flex-start; gap: 9px; margin: 8px 0 2px; padding: 10px 11px; color: #245f58; background: #edf9f5; border: 1px solid #c4e9df; border-radius: 10px; cursor: pointer; }
+.acceleration-choice input { width: 16px; height: 16px; flex: 0 0 auto; margin: 1px 0 0; accent-color: #087d74; }
+.acceleration-choice strong, .acceleration-choice small { display: block; }
+.acceleration-choice strong { font-size: 11px; font-weight: 800; }
+.acceleration-choice small { margin-top: 3px; color: #6b8c85; font-size: 10px; line-height: 1.45; }
 .remember-identity input { width: 16px; height: 16px; flex: 0 0 auto; margin: 1px 0 0; accent-color: #087d74; }
 .remember-identity strong, .remember-identity small { display: block; }
 .remember-identity strong { font-size: 11px; font-weight: 700; }
 .remember-identity small { margin-top: 3px; color: #8b9994; font-size: 10px; line-height: 1.4; }
 .identity-warning { margin: 8px 0 0; color: #9a6a32; font-size: 10px; line-height: 1.45; }
+:global(html[data-theme="dark"] .acceleration-choice) { color: #b8eee3; background: #183530; border-color: #2b645b; }
+:global(html[data-theme="dark"] .acceleration-choice small) { color: #91b9b0; }
 .local-servers { display: grid; gap: 8px; margin: 1px 0 5px; }
 .local-server-group { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
 .local-server-group > span { width: 100%; color: #87958f; font-size: 10px; font-weight: 700; }

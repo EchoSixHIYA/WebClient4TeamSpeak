@@ -34,9 +34,10 @@
         <section v-if="route.path === '/admin/server'" class="page-content server-page">
           <div class="page-heading"><div><h2>{{ tr('serverSettings') }}</h2><p>{{ tr('serverSettingsLead') }}</p></div><button class="primary-button" :disabled="submitting" @click="saveServerSettings">{{ submitting ? tr('saving') : tr('saveChanges') }}</button></div>
           <div class="settings-grid">
-            <article class="settings-card"><h3>{{ tr('teamSpeakTarget') }}</h3><div class="target-fields"><label><span>{{ tr('serverAddress') }}</span><input v-model.trim="serverForm.address" :placeholder="tr('serverPlaceholder')" /></label><label><span>{{ tr('serverPort') }}</span><input v-model.trim="serverForm.port" inputmode="numeric" type="text" maxlength="5" :placeholder="tr('serverPortPlaceholder')" /></label></div><div class="password-row"><label><span>{{ tr('serverPassword') }}</span><input v-model="serverForm.serverPassword" type="password" autocomplete="off" :disabled="serverForm.passwordAction !== 'replace'" :placeholder="serverForm.hasPassword ? tr('passwordConfigured') : tr('optionalPassword')" /></label><div class="password-actions"><button type="button" :class="{ active: serverForm.passwordAction === 'replace' }" @click="serverForm.passwordAction = 'replace'">{{ tr('change') }}</button><button v-if="serverForm.hasPassword" type="button" :class="{ danger: serverForm.passwordAction === 'remove' }" @click="serverForm.passwordAction = 'remove'">{{ tr('remove') }}</button></div></div><button class="secondary-button" type="button" :disabled="testing" @click="testServerConnection"><span v-if="testing" class="spinner small"></span><Icon v-else name="activity" :size="17" />{{ testing ? tr('testing') : tr('testConnection') }}</button><div v-if="testResult" :class="['test-result', testResult.ok ? 'success' : 'error']"><Icon :name="testResult.ok ? 'check' : 'close'" :size="18" /><div><strong>{{ testResult.ok ? tr('connectionReady') : tr('connectionFailed') }}</strong><small>{{ testResultText }}</small></div></div></article>
+            <article class="settings-card"><h3>{{ tr('teamSpeakTarget') }}</h3><div class="target-fields"><label><span>{{ tr('serverAddress') }}</span><input v-model.trim="serverForm.address" :placeholder="tr('serverPlaceholder')" /></label><label><span>{{ tr('serverPort') }}</span><input v-model.trim="serverForm.port" inputmode="numeric" type="text" maxlength="5" :placeholder="tr('serverPortPlaceholder')" /></label></div><div class="password-row"><label><span>{{ tr('serverPassword') }}</span><input v-model="serverForm.serverPassword" type="password" autocomplete="off" :disabled="serverForm.passwordAction !== 'replace'" :placeholder="serverForm.hasPassword ? tr('passwordConfigured') : tr('optionalPassword')" /></label><div class="password-actions"><button type="button" :class="{ active: serverForm.passwordAction === 'replace' }" @click="serverForm.passwordAction = 'replace'">{{ tr('change') }}</button><button v-if="serverForm.hasPassword" type="button" :class="{ danger: serverForm.passwordAction === 'remove' }" @click="serverForm.passwordAction = 'remove'">{{ tr('remove') }}</button></div></div><button class="secondary-button" type="button" :disabled="testing" @click="testServerConnection"><span v-if="testing" class="spinner small"></span><Icon v-else name="activity" :size="17" />{{ testing ? tr('testing') : tr('testConnection') }}</button><div v-if="testResult" :class="['test-result', testResult.ok ? 'success' : 'error']"><Icon :name="testResult.ok ? 'check' : 'close'" :size="18" /><div><strong>{{ testResultTitle }}</strong><small>{{ testResultText }}</small></div></div></article>
             <article class="settings-card"><h3>{{ tr('accessAndIdentity') }}</h3><fieldset><legend>{{ tr('accessMode') }}</legend><label class="choice"><input v-model="serverForm.accessMode" type="radio" value="fixed" /><span><strong>{{ tr('fixedMode') }}</strong><small>{{ tr('fixedModeLead') }}</small></span></label><label class="choice"><input v-model="serverForm.accessMode" type="radio" value="open" /><span><strong>{{ tr('openMode') }}</strong><small>{{ tr('openModeLead') }}</small></span></label></fieldset><label><span>{{ tr('siteName') }}</span><input v-model.trim="serverForm.siteName" maxlength="80" /></label><label><span>{{ tr('welcomeTextZh') }}</span><textarea v-model="serverForm.welcomeText" maxlength="500" rows="3"></textarea></label><label><span>{{ tr('welcomeTextEn') }}</span><textarea v-model="serverForm.welcomeTextEn" maxlength="500" rows="3"></textarea></label></article>
             <article class="settings-card advanced-card"><div><h3>{{ tr('advancedSettings') }}</h3><p class="card-help">{{ tr('advancedSettingsLead') }}</p></div><label class="choice toggle-choice"><input v-model="serverForm.webRtcEnabled" type="checkbox" @change="handleWebRtcToggle" /><span><strong>{{ tr('webrtcEnabled') }}</strong><small>{{ tr('webrtcEnabledLead') }}</small></span></label><div class="webrtc-port-fields"><div class="port-fields-heading"><strong>{{ tr('webrtcPortRange') }}</strong><small>{{ tr('webrtcPortRangeLead') }}</small></div><div class="port-inputs"><label><span>{{ tr('webrtcPortStart') }}</span><input v-model.number="serverForm.webRtcUdpStart" type="number" inputmode="numeric" min="1024" max="65535" :disabled="serverForm.webRtcEnabled" /></label><label><span>{{ tr('webrtcPortEnd') }}</span><input v-model.number="serverForm.webRtcUdpEnd" type="number" inputmode="numeric" min="1024" max="65535" :disabled="serverForm.webRtcEnabled" /></label></div></div><small class="field-help">{{ tr('webrtcApplyHint') }}</small></article>
+            <article class="settings-card relay-card"><div><h3>{{ tr('relaySettings') }}</h3><p class="card-help">{{ tr('relaySettingsLead') }}</p></div><label class="choice toggle-choice"><input v-model="serverForm.relayEnabled" type="checkbox" @change="touchRelaySettings" /><span><strong>{{ tr('relayEnabled') }}</strong><small>{{ tr('relayEnabledLead') }}</small></span></label><div class="relay-fields"><label><span>{{ tr('relayName') }}</span><input v-model.trim="serverForm.relayName" maxlength="80" :placeholder="tr('relayNamePlaceholder')" @input="touchRelaySettings" /></label><label><span>{{ tr('relayTarget') }}</span><input v-model.trim="serverForm.relayTarget" maxlength="300" :placeholder="tr('relayTargetPlaceholder')" @input="touchRelaySettings" /></label><div class="password-row"><label><span>{{ tr('relayToken') }}</span><input v-model="serverForm.relayToken" type="password" autocomplete="off" :disabled="serverForm.relayTokenAction !== 'replace'" :placeholder="serverForm.hasRelayToken ? tr('relayTokenConfigured') : tr('relayTokenPlaceholder')" @input="touchRelaySettings" /></label><div class="password-actions"><button type="button" :class="{ active: serverForm.relayTokenAction === 'replace' }" @click="serverForm.relayTokenAction = 'replace'; touchRelaySettings()">{{ tr('change') }}</button><button v-if="serverForm.hasRelayToken" type="button" :class="{ danger: serverForm.relayTokenAction === 'remove' }" @click="serverForm.relayTokenAction = 'remove'; touchRelaySettings()">{{ tr('remove') }}</button></div></div></div><small class="field-help">{{ serverForm.relayConfigured ? tr('relayManagedHint') : tr('relayEnvironmentHint') }}</small></article>
           </div>
           <article class="readonly-card"><h3>{{ tr('runtimeFacts') }}</h3><dl><div><dt>{{ tr('lastTest') }}</dt><dd>{{ formatDate(serverForm.lastTestAt) }}</dd></div><div><dt>{{ tr('latency') }}</dt><dd>{{ serverForm.lastTestLatencyMs == null ? '—' : `${serverForm.lastTestLatencyMs} ms` }}</dd></div><div><dt>{{ tr('internalPort') }}</dt><dd>3040</dd></div></dl></article>
         </section>
@@ -50,7 +51,7 @@
           </div>
           <div class="operations-grid lower-operations">
             <article class="operation-card diagnostics-card"><header><div><h3>{{ tr('diagnostics') }}</h3><p>{{ tr('diagnosticsLead') }}</p></div><a class="text-link" href="/api/admin/diagnostics/report">{{ tr('downloadReport') }}</a></header><dl class="diagnostic-list"><div><dt>{{ tr('version') }}</dt><dd>{{ operations.diagnostics.version || '—' }}</dd></div><div><dt>{{ tr('runtime') }}</dt><dd>{{ operations.diagnostics.node || '—' }}</dd></div><div><dt>{{ tr('platform') }}</dt><dd>{{ operations.diagnostics.platform || '—' }} / {{ operations.diagnostics.arch || '—' }}</dd></div><div><dt>{{ tr('databaseSchema') }}</dt><dd>v{{ operations.diagnostics.schemaVersion || '—' }}</dd></div><div><dt>{{ tr('createdSessions') }}</dt><dd>{{ operations.diagnostics.createdSessions }}</dd></div></dl><button class="secondary-button" type="button" @click="downloadBackup">{{ tr('exportBackup') }}</button></article>
-            <article class="operation-card logs-card"><header><div><h3>{{ tr('logViewer') }}</h3><p>{{ tr('logViewerLead') }}</p></div><span v-if="!operations.logs.available" class="muted-label">{{ tr('logsUnavailable') }}</span></header><div v-if="operations.logs.sessions.length" class="connection-list"><div class="connection-history-heading"><strong>{{ tr('connectionHistory') }}</strong><small>{{ tr('connectionHistoryLead') }}</small></div><div v-for="record in operations.logs.sessions" :key="record.id" class="connection-row"><div class="connection-person"><strong>{{ record.nickname }}</strong><small>{{ record.target }}</small></div><div class="connection-detail"><span :class="['connection-status', record.status]">{{ connectionStatusLabel(record.status) }}</span><small>{{ record.connectedAt ? tr('connectedAt') : tr('connectionAttemptedAt') }}：{{ formatDate(record.connectedAt || record.startedAt) }}</small><small>{{ tr('duration') }}：{{ formatAge(record.durationSeconds) }}</small><small v-if="record.disconnectedAt">{{ tr('disconnectedAt') }}：{{ formatDate(record.disconnectedAt) }}</small></div></div></div><div v-if="operations.logs.entries.length" class="log-list"><div v-for="(entry, index) in operations.logs.entries" :key="`${entry.timestamp}-${index}`" class="log-row"><span :class="['log-level', entry.level.toLowerCase()]">{{ entry.level }}</span><div><strong>{{ entry.message || '—' }}</strong><small>{{ formatDate(entry.timestamp) }}<template v-if="Object.keys(entry.context).length"> · {{ formatContext(entry.context) }}</template></small></div></div></div><div v-if="!operations.logs.sessions.length && !operations.logs.entries.length" class="operation-empty"><Icon name="activity" :size="22" /><span>{{ tr('noLogs') }}</span></div></article>
+            <article class="operation-card logs-card"><header><div><h3>{{ tr('logViewer') }}</h3><p>{{ tr('logViewerLead') }}</p></div><span v-if="!operations.logs.available" class="muted-label">{{ tr('logsUnavailable') }}</span></header><div v-if="operations.logs.sessions.length" class="connection-list"><div class="connection-history-heading"><strong>{{ tr('connectionHistory') }}</strong><small>{{ tr('connectionHistoryLead') }}</small></div><div v-for="record in operations.logs.sessions" :key="record.id" class="connection-row"><div class="connection-person"><strong>{{ record.nickname }}</strong><small>{{ record.target }}</small></div><div class="connection-detail"><span :class="['connection-status', record.status]">{{ connectionStatusLabel(record.status) }}</span><small>{{ record.connectedAt ? tr('connectedAt') : tr('connectionAttemptedAt') }}：{{ formatDate(record.connectedAt || record.startedAt) }}</small><small>{{ tr('duration') }}：{{ formatAge(record.durationSeconds) }}</small><small v-if="record.disconnectedAt">{{ tr('disconnectedAt') }}：{{ formatDate(record.disconnectedAt) }}</small><small v-if="record.reason">{{ tr('failureReason') }}：{{ connectionFailureText(record.reason) }}</small></div></div></div><div v-if="operations.logs.entries.length" class="log-list"><div v-for="(entry, index) in operations.logs.entries" :key="`${entry.timestamp}-${index}`" class="log-row"><span :class="['log-level', entry.level.toLowerCase()]">{{ entry.level }}</span><div><strong>{{ entry.message || '—' }}</strong><small>{{ formatDate(entry.timestamp) }}<template v-if="Object.keys(entry.context).length"> · {{ formatContext(entry.context) }}</template></small></div></div></div><div v-if="!operations.logs.sessions.length && !operations.logs.entries.length" class="operation-empty"><Icon name="activity" :size="22" /><span>{{ tr('noLogs') }}</span></div></article>
             <article class="operation-card audit-card"><header><div><h3>{{ tr('audit') }}</h3><p>{{ tr('auditLead') }}</p></div></header><ul class="event-list"><li v-for="event in operations.audit" :key="`${event.event}-${event.createdAt}`"><span><Icon name="check" :size="14" /></span><div><strong>{{ eventName(event.event) }}</strong><small>{{ formatDate(event.createdAt) }}</small></div></li><li v-if="!operations.audit.length" class="empty-event">{{ tr('auditEmpty') }}</li></ul></article>
           </div>
         </section>
@@ -78,7 +79,7 @@ import { applyTheme, getStoredTheme, isDarkTheme, nextTheme, saveTheme, type The
 type Language = "zh" | "en" | "de";
 type Screen = "login" | "change-password" | "admin";
 type AccessMode = "fixed" | "open";
-interface ProbeState { ok: boolean; latencyMs?: number; serverName?: string | null; packetLossPercent?: number; attempts?: number; successfulAttempts?: number; code?: string; errorCode?: string }
+interface ProbeState { ok: boolean; checkType?: "network" | "protocol"; passwordVerified?: boolean; latencyMs?: number; serverName?: string | null; packetLossPercent?: number; attempts?: number; successfulAttempts?: number; code?: string; errorCode?: string }
 
 const route = useRoute();
 const router = useRouter();
@@ -100,7 +101,7 @@ const newPassword = ref("");
 const confirmNewPassword = ref("");
 const testResult = ref<ProbeState | null>(null);
 
-const serverForm = reactive({ address: "", port: "9987", serverPassword: "", passwordAction: "keep" as "keep" | "replace" | "remove", hasPassword: false, accessMode: "fixed" as AccessMode, siteName: "WebSpeak", welcomeText: "", welcomeTextEn: "", webRtcEnabled: false, webRtcUdpStart: 40000, webRtcUdpEnd: 40099, lastTestAt: null as string | null, lastTestLatencyMs: null as number | null });
+const serverForm = reactive({ address: "", port: "9987", serverPassword: "", passwordAction: "keep" as "keep" | "replace" | "remove", hasPassword: false, accessMode: "fixed" as AccessMode, siteName: "WebSpeak", welcomeText: "", welcomeTextEn: "", webRtcEnabled: false, webRtcUdpStart: 40000, webRtcUdpEnd: 40099, relayConfigured: false, relayEnabled: false, relayName: "", relayTarget: "", relayToken: "", relayTokenAction: "keep" as "keep" | "replace" | "remove", hasRelayToken: false, relaySettingsTouched: false, lastTestAt: null as string | null, lastTestLatencyMs: null as number | null });
 const overview = reactive({ gateway: { version: "", uptimeSeconds: 0 }, teamSpeak: { target: "", status: "unknown", lastTestAt: null as string | null, latencyMs: null as number | null }, sessions: { active: 0, peak: 0, limit: 100 }, recentEvents: [] as Array<{ event: string; createdAt: string }>, legacyConfigImported: false });
 interface AdminSession { id: string; nickname: string; target: string; state: string; createdAt: string; ageSeconds: number; tsClientId: number | null; channelId: string | null; memberCount: number }
 interface ManagedInvite { id: string; target: string; channel: string; expiresAt: string; maxUses: number; useCount: number; createdAt: string; revokedAt: string | null; status: "active" | "expired" | "exhausted" | "revoked" }
@@ -164,7 +165,18 @@ const copy = {
     testing: "正在测试…",
      connectionReady: "连接成功",
      connectionFailed: "连接失败",
-     packetLoss: "丢包率",
+    packetLoss: "丢包率",
+    networkReachable: "网络可达（未验证密码）",
+    networkReachableHint: "Ping 成功；管理员测试不会创建额外 TeamSpeak 成员，因此未验证服务器密码。",
+    failureReason: "原因",
+    hostNotFoundError: "找不到服务器",
+    networkUnreachableError: "网络不可达",
+    networkTimeoutError: "网络请求超时",
+    serverPasswordRequiredError: "服务器需要密码",
+    invalidServerPasswordError: "服务器密码错误",
+    protocolFailureError: "TeamSpeak 协议协商失败",
+    serverRejectedError: "服务器拒绝连接",
+    pingUnavailableError: "无法执行网络探测",
     accessAndIdentity: "访问与站点信息",
     advancedSettings: "高级参数",
     advancedSettingsLead: "仅在需要时调整网关的高级传输参数。",
@@ -179,6 +191,19 @@ const copy = {
     webrtcApplyHint: "端口范围仅可在 WebRTC 关闭时修改；开启后会锁定，保存后对新连接生效。",
     webrtcPortNoticeTitle: "请先放行 WebRTC 端口",
     webrtcPortNotice: "需要开启端口，范围是 {{range}}（UDP）。请先在主机防火墙、安全组和 Docker 端口映射中放行该范围。",
+    relaySettings: "中继服务器",
+    relaySettingsLead: "配置访客连接使用的中继节点；名称会显示在首页加速选项中。",
+    relayEnabled: "启用中继加速",
+    relayEnabledLead: "访客勾选加速后，通过此中继访问目标 TeamSpeak 服务器。",
+    relayName: "中继显示名称",
+    relayNamePlaceholder: "例如：大陆节点、香港节点",
+    relayTarget: "中继服务器地址",
+    relayTargetPlaceholder: "例如：relay.example.com#39087",
+    relayToken: "中继令牌",
+    relayTokenPlaceholder: "填写中继服务令牌",
+    relayTokenConfigured: "已配置令牌（留空保持不变）",
+    relayManagedHint: "当前使用管理控制台保存的中继配置。令牌只保存为加密密文，不会返回到页面。",
+    relayEnvironmentHint: "中继仅使用此页面保存的配置；关闭并保存后，访客页面不会显示中继选项。",
     accessMode: "访客访问模式",
     fixedMode: "仅限此 TeamSpeak 服务器",
     fixedModeLead: "访客只需填写昵称，目标和密码由 WebSpeak 管理。",
@@ -334,7 +359,18 @@ const copy = {
     testing: "Testing…",
      connectionReady: "Connection ready",
      connectionFailed: "Connection failed",
-     packetLoss: "Packet loss",
+    packetLoss: "Packet loss",
+    networkReachable: "Network reachable (password not verified)",
+    networkReachableHint: "Ping succeeded. The admin test does not create an extra TeamSpeak client, so the server password was not verified.",
+    failureReason: "Reason",
+    hostNotFoundError: "Server not found",
+    networkUnreachableError: "Network unreachable",
+    networkTimeoutError: "Network request timed out",
+    serverPasswordRequiredError: "Server password required",
+    invalidServerPasswordError: "Invalid server password",
+    protocolFailureError: "TeamSpeak protocol negotiation failed",
+    serverRejectedError: "Server rejected the connection",
+    pingUnavailableError: "Network probe unavailable",
     accessAndIdentity: "Access and site identity",
     advancedSettings: "Advanced settings",
     advancedSettingsLead: "Adjust gateway transport options only when needed.",
@@ -349,6 +385,19 @@ const copy = {
     webrtcApplyHint: "The range can only be edited while WebRTC is off. It is locked while enabled and applies to new connections after saving.",
     webrtcPortNoticeTitle: "Allow WebRTC ports first",
     webrtcPortNotice: "Ports must be opened: {{range}} (UDP). Allow this range in the host firewall, security group, and Docker port mapping first.",
+    relaySettings: "Relay server",
+    relaySettingsLead: "Configure the relay used by accelerated guest connections; its name is shown on the welcome page.",
+    relayEnabled: "Enable relay acceleration",
+    relayEnabledLead: "Guests who select acceleration will reach their TeamSpeak target through this relay.",
+    relayName: "Relay display name",
+    relayNamePlaceholder: "For example: Mainland relay or Japan relay",
+    relayTarget: "Relay server address",
+    relayTargetPlaceholder: "For example: relay.example.com#39087",
+    relayToken: "Relay token",
+    relayTokenPlaceholder: "Enter the relay service token",
+    relayTokenConfigured: "Token configured (leave blank to keep it)",
+    relayManagedHint: "The relay is managed from the console. The token is stored encrypted and is never returned to the browser.",
+    relayEnvironmentHint: "The relay uses only the settings saved here. After you disable and save it, visitors will no longer see the relay option.",
     accessMode: "Guest access mode",
     fixedMode: "Only this TeamSpeak server",
     fixedModeLead: "Guests enter only a nickname; WebSpeak manages the target and password.",
@@ -502,6 +551,17 @@ const germanCopy = {
   connectionReady: "Verbindung hergestellt",
   connectionFailed: "Verbindung fehlgeschlagen",
   packetLoss: "Paketverlust",
+  networkReachable: "Netzwerk erreichbar (Passwort nicht geprüft)",
+  networkReachableHint: "Ping erfolgreich. Der Admin-Test erstellt keinen zusätzlichen TeamSpeak-Client und prüft daher das Serverpasswort nicht.",
+  failureReason: "Grund",
+  hostNotFoundError: "Server nicht gefunden",
+  networkUnreachableError: "Netzwerk nicht erreichbar",
+  networkTimeoutError: "Netzwerk-Zeitüberschreitung",
+  serverPasswordRequiredError: "Serverpasswort erforderlich",
+  invalidServerPasswordError: "Falsches Serverpasswort",
+  protocolFailureError: "Aushandlung des TeamSpeak-Protokolls fehlgeschlagen",
+  serverRejectedError: "Server hat die Verbindung abgelehnt",
+  pingUnavailableError: "Netzwerkprüfung nicht verfügbar",
   accessAndIdentity: "Zugriff und Website-Informationen",
   advancedSettings: "Erweiterte Einstellungen",
   advancedSettingsLead: "Erweiterte Gateway-Transportparameter nur bei Bedarf ändern.",
@@ -510,6 +570,19 @@ const germanCopy = {
   webrtcPortRange: "WebRTC-UDP-Portbereich",
   webrtcPortStart: "Startport",
   webrtcPortEnd: "Endport",
+  relaySettings: "Relay-Server",
+  relaySettingsLead: "Konfiguriere den Relay-Knoten für beschleunigte Verbindungen; sein Name wird auf der Startseite angezeigt.",
+  relayEnabled: "Relay-Beschleunigung aktivieren",
+  relayEnabledLead: "Besucher mit aktivierter Beschleunigung erreichen ihr TeamSpeak-Ziel über diesen Relay.",
+  relayName: "Anzeigename des Relays",
+  relayNamePlaceholder: "Zum Beispiel: Festland-Relay oder Japan-Relay",
+  relayTarget: "Relay-Serveradresse",
+  relayTargetPlaceholder: "Zum Beispiel: relay.example.com#39087",
+  relayToken: "Relay-Token",
+  relayTokenPlaceholder: "Token des Relay-Dienstes eingeben",
+  relayTokenConfigured: "Token konfiguriert (leer lassen zum Beibehalten)",
+  relayManagedHint: "Der Relay wird über die Konsole verwaltet. Das Token wird verschlüsselt gespeichert und nie an den Browser zurückgegeben.",
+  relayEnvironmentHint: "Der Relay verwendet nur die hier gespeicherten Einstellungen. Nach dem Deaktivieren und Speichern wird die Option für Besucher ausgeblendet.",
   accessMode: "Gastzugriff",
   fixedMode: "Nur dieser TeamSpeak-Server",
   openMode: "Andere TeamSpeak-Server erlauben",
@@ -586,7 +659,24 @@ const germanCopy = {
 function tr(key: keyof typeof copy.zh, vars: Record<string, string | number> = {}): string { let value: string = language.value === "zh" ? copy.zh[key] : language.value === "de" ? germanCopy[key] ?? copy.en[key] ?? copy.zh[key] : copy.en[key] ?? copy.zh[key]; for (const [name, replacement] of Object.entries(vars)) value = value.replaceAll(`{{${name}}}`, String(replacement)); return value; }
 const passwordStrength = computed(() => Math.min(100, Math.max(8, newPassword.value.length * 5 + (/[\s\W]/.test(newPassword.value) ? 15 : 0))));
 const currentPageTitle = computed(() => route.path === "/admin/server" ? tr('server') : route.path === "/admin/operations" ? tr('operations') : tr('overview'));
-const testResultText = computed(() => { if (!testResult.value) return ""; const result = testResult.value; const toolUnavailable = result.errorCode === "PING_UNAVAILABLE"; const loss = toolUnavailable || result.packetLossPercent == null ? null : `${tr('packetLoss')} ${result.packetLossPercent}%`; if (!result.ok) return [errorText(result.code ?? result.errorCode), loss].filter(Boolean).join(" · "); return [result.serverName, result.latencyMs == null ? null : `${result.latencyMs} ms`, loss].filter(Boolean).join(" · "); });
+const testResultTitle = computed(() => {
+  const result = testResult.value;
+  if (!result) return "";
+  if (result.ok) return result.checkType === "network" ? tr("networkReachable") : tr("connectionReady");
+  const names: Record<string, keyof typeof copy.zh> = {
+    INVALID_TARGET: "serverAddress",
+    HOST_NOT_FOUND: "hostNotFoundError",
+    UNREACHABLE: "networkUnreachableError",
+    TIMEOUT: "networkTimeoutError",
+    PASSWORD_REQUIRED: "serverPasswordRequiredError",
+    INVALID_PASSWORD: "invalidServerPasswordError",
+    PROTOCOL_NEGOTIATION_FAILED: "protocolFailureError",
+    SERVER_REJECTED: "serverRejectedError",
+    PING_UNAVAILABLE: "pingUnavailableError",
+  };
+  return tr(names[result.code ?? result.errorCode ?? ""] ?? "connectionFailed");
+});
+const testResultText = computed(() => { if (!testResult.value) return ""; const result = testResult.value; const toolUnavailable = result.errorCode === "PING_UNAVAILABLE"; const loss = toolUnavailable || result.packetLossPercent == null ? null : `${tr('packetLoss')} ${result.packetLossPercent}%`; if (!result.ok) return [connectionFailureText(result.code ?? result.errorCode), loss].filter(Boolean).join(" · "); if (result.checkType === "network") return [tr("networkReachableHint"), result.latencyMs == null ? null : `${result.latencyMs} ms`, loss].filter(Boolean).join(" · "); return [result.serverName, result.latencyMs == null ? null : `${result.latencyMs} ms`, loss].filter(Boolean).join(" · "); });
 const targetStatusText = computed(() => overview.teamSpeak.status === "reachable" ? tr('reachable') : overview.teamSpeak.status === "unreachable" ? tr('unreachable') : tr('notTested'));
 const webrtcPortRangeText = computed(() => `${serverForm.webRtcUdpStart}–${serverForm.webRtcUdpEnd}`);
 
@@ -599,7 +689,7 @@ async function login() { submitting.value = true; errorMessage.value = ""; try {
 async function changePassword() { errorMessage.value = ""; if (newPassword.value.length < 12) { errorMessage.value = tr('setupPasswordShort'); return; } if (newPassword.value !== confirmNewPassword.value) { errorMessage.value = tr('setupPasswordsMismatch'); return; } submitting.value = true; try { await sendJson("/api/admin/change-password", "POST", { newPassword: newPassword.value }); newPassword.value = ""; confirmNewPassword.value = ""; screen.value = "admin"; await router.replace("/admin"); await Promise.all([loadOverview(), loadServerSettings()]); } catch (error) { errorMessage.value = errorText((error as ApiError).code); } finally { submitting.value = false; } }
 async function logout() { try { await sendJson("/api/admin/logout", "POST", {}); } finally { csrfToken.value = ""; screen.value = "login"; await router.replace("/admin/login"); } }
 async function loadOverview() { Object.assign(overview, await getJson("/api/admin/overview")); }
-async function loadServerSettings() { const value = await getJson("/api/admin/server"); const target = splitTeamSpeakTarget(value.target); Object.assign(serverForm, value, { address: target.address, port: target.port, serverPassword: "", passwordAction: "keep", webRtcEnabled: value.webRtcEnabled === true, webRtcUdpStart: Number(value.webRtcUdpStart || 40000), webRtcUdpEnd: Number(value.webRtcUdpEnd || 40099) }); }
+async function loadServerSettings() { const value = await getJson("/api/admin/server"); const target = splitTeamSpeakTarget(value.target); Object.assign(serverForm, value, { address: target.address, port: target.port, serverPassword: "", passwordAction: "keep", webRtcEnabled: value.webRtcEnabled === true, webRtcUdpStart: Number(value.webRtcUdpStart || 40000), webRtcUdpEnd: Number(value.webRtcUdpEnd || 40099), relayConfigured: value.relayConfigured === true, relayEnabled: value.relayEnabled === true, relayName: String(value.relayName || ""), relayTarget: String(value.relayTarget || ""), relayToken: "", relayTokenAction: "keep", hasRelayToken: value.hasRelayToken === true, relaySettingsTouched: false }); }
 async function loadOperations() { operationsLoading.value = true; try { const [sessions, invites, diagnostics, logs, audit] = await Promise.all([getJson("/api/admin/sessions"), getJson("/api/admin/invites"), getJson("/api/admin/diagnostics"), getJson("/api/admin/logs?limit=100"), getJson("/api/admin/audit?limit=50")]); operations.sessions = Array.isArray(sessions.sessions) ? sessions.sessions : []; operations.invites = Array.isArray(invites.invites) ? invites.invites : []; operations.diagnostics = { version: String(diagnostics.gateway?.version || ""), node: String(diagnostics.gateway?.node || ""), platform: String(diagnostics.gateway?.platform || ""), arch: String(diagnostics.gateway?.arch || ""), schemaVersion: Number(diagnostics.database?.schemaVersion || 0), createdSessions: Number(diagnostics.sessions?.created || 0) }; operations.logs = { available: Boolean(logs.available), entries: Array.isArray(logs.entries) ? logs.entries : [], sessions: Array.isArray(logs.sessions) ? logs.sessions : [] }; operations.audit = Array.isArray(audit.events) ? audit.events : []; } catch (error) { errorMessage.value = errorText((error as ApiError).code); } finally { operationsLoading.value = false; } }
 async function terminateSession(session: AdminSession) { if (!window.confirm(tr('confirmTerminate', { nickname: session.nickname }))) return; terminatingSession.value = session.id; errorMessage.value = ""; try { await sendJson(`/api/admin/sessions/${encodeURIComponent(session.id)}/terminate`, "POST", {}); await Promise.all([loadOperations(), loadOverview()]); } catch (error) { errorMessage.value = errorText((error as ApiError).code); } finally { terminatingSession.value = ""; } }
 async function createInvite() { submitting.value = true; errorMessage.value = ""; createdInvite.value = null; try { const result = await sendJson("/api/admin/invites", "POST", { channel: inviteForm.channel, expiresInHours: inviteForm.expiresInHours, maxUses: inviteForm.maxUses }); if (typeof result.token !== "string") throw new Error("INVITE_CREATE_FAILED"); createdInvite.value = { token: result.token, link: `${location.origin}/?invite=${encodeURIComponent(result.token)}` }; inviteForm.channel = ""; await loadOperations(); } catch (error) { errorMessage.value = errorText((error as ApiError).code); } finally { submitting.value = false; } }
@@ -607,10 +697,11 @@ async function revokeInvite(invite: ManagedInvite) { if (!window.confirm(tr('con
 async function copyInviteLink() { if (!createdInvite.value) return; try { await navigator.clipboard.writeText(createdInvite.value.link); showOperationNotice(tr('copiedLink')); } catch { errorMessage.value = tr('operationFailed'); } }
 function showOperationNotice(message: string) { errorMessage.value = message; window.setTimeout(() => { if (errorMessage.value === message) errorMessage.value = ""; }, 2200); }
 async function downloadBackup() { try { const response = await fetch("/api/admin/backup", { headers: { accept: "application/octet-stream" } }); if (!response.ok) throw new Error("BACKUP_FAILED"); const blob = await response.blob(); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `webspeak-backup-${new Date().toISOString().slice(0, 10)}.db`; anchor.click(); URL.revokeObjectURL(url); await loadOperations(); } catch (error) { errorMessage.value = errorText((error as ApiError).code); } }
-async function saveServerSettings() { submitting.value = true; errorMessage.value = ""; try { const result = await sendJson("/api/admin/server", "PUT", serverPayload()); const target = splitTeamSpeakTarget(result.settings?.target); Object.assign(serverForm, result.settings, { address: target.address, port: target.port, serverPassword: "", passwordAction: "keep", webRtcEnabled: result.settings.webRtcEnabled === true, webRtcUdpStart: Number(result.settings.webRtcUdpStart || 40000), webRtcUdpEnd: Number(result.settings.webRtcUdpEnd || 40099) }); await loadOverview(); } catch (error) { errorMessage.value = errorText((error as ApiError).code); } finally { submitting.value = false; } }
+async function saveServerSettings() { submitting.value = true; errorMessage.value = ""; try { const result = await sendJson("/api/admin/server", "PUT", serverPayload()); const target = splitTeamSpeakTarget(result.settings?.target); Object.assign(serverForm, result.settings, { address: target.address, port: target.port, serverPassword: "", passwordAction: "keep", webRtcEnabled: result.settings.webRtcEnabled === true, webRtcUdpStart: Number(result.settings.webRtcUdpStart || 40000), webRtcUdpEnd: Number(result.settings.webRtcUdpEnd || 40099), relayConfigured: result.settings.relayConfigured === true, relayEnabled: result.settings.relayEnabled === true, relayName: String(result.settings.relayName || ""), relayTarget: String(result.settings.relayTarget || ""), relayToken: "", relayTokenAction: "keep", hasRelayToken: result.settings.hasRelayToken === true, relaySettingsTouched: false }); await loadOverview(); } catch (error) { errorMessage.value = errorText((error as ApiError).code); } finally { submitting.value = false; } }
 function handleWebRtcToggle() { if (serverForm.webRtcEnabled) webrtcPortNoticeOpen.value = true; }
 async function testServerConnection() { await runTest("/api/admin/server/test", { target: combineTeamSpeakTarget(serverForm.address, serverForm.port), serverPassword: serverForm.passwordAction === "replace" ? serverForm.serverPassword : undefined, passwordAction: serverForm.passwordAction }); if (testResult.value) { await loadOverview(); serverForm.lastTestAt = new Date().toISOString(); serverForm.lastTestLatencyMs = testResult.value.ok ? (testResult.value.latencyMs ?? null) : null; } }
-function serverPayload() { return { target: combineTeamSpeakTarget(serverForm.address, serverForm.port), serverPassword: serverForm.passwordAction === "replace" ? serverForm.serverPassword : undefined, passwordAction: serverForm.passwordAction, accessMode: serverForm.accessMode, siteName: serverForm.siteName, welcomeText: serverForm.welcomeText, welcomeTextEn: serverForm.welcomeTextEn, webRtcEnabled: serverForm.webRtcEnabled, webRtcUdpStart: serverForm.webRtcUdpStart, webRtcUdpEnd: serverForm.webRtcUdpEnd }; }
+function touchRelaySettings() { serverForm.relaySettingsTouched = true; }
+function serverPayload() { return { target: combineTeamSpeakTarget(serverForm.address, serverForm.port), serverPassword: serverForm.passwordAction === "replace" ? serverForm.serverPassword : undefined, passwordAction: serverForm.passwordAction, accessMode: serverForm.accessMode, siteName: serverForm.siteName, welcomeText: serverForm.welcomeText, welcomeTextEn: serverForm.welcomeTextEn, webRtcEnabled: serverForm.webRtcEnabled, webRtcUdpStart: serverForm.webRtcUdpStart, webRtcUdpEnd: serverForm.webRtcUdpEnd, relaySettingsAction: serverForm.relaySettingsTouched ? "replace" : "keep", relayEnabled: serverForm.relayEnabled, relayName: serverForm.relayName, relayTarget: serverForm.relayTarget, relayToken: serverForm.relayTokenAction === "replace" ? serverForm.relayToken : undefined, relayTokenAction: serverForm.relayTokenAction }; }
 async function runTest(url: string, body: Record<string, unknown>) { testing.value = true; errorMessage.value = ""; testResult.value = null; try { testResult.value = await sendJson(url, "POST", body, url.includes("/server/test")); } catch (error) { testResult.value = { ok: false, code: (error as ApiError).code }; } finally { testing.value = false; } }
 async function dismissLegacyNotice() { await sendJson("/api/admin/legacy-import/dismiss", "POST", {}); overview.legacyConfigImported = false; }
 function persistLanguage() { localStorage.setItem("webspeak:language", language.value); }
@@ -623,7 +714,23 @@ function sessionStateLabel(state: string) { const names: Record<string, { zh: st
 function inviteStatusLabel(status: ManagedInvite["status"]) { const names: Record<ManagedInvite["status"], keyof typeof copy.zh> = { active: "active", expired: "expired", exhausted: "exhausted", revoked: "revoked" }; return tr(names[status]); }
 function formatContext(context: Record<string, string | number | boolean>) { return Object.entries(context).map(([key, value]) => `${key}=${value}`).join(" · "); }
 function eventName(event: string) { if (event === "ADMIN_LOGIN_FAILED") return language.value === "zh" ? "管理员登录失败" : "Administrator login failed"; if (event === "CONNECTION_TEST_SUCCEEDED") return language.value === "zh" ? "连接测试成功" : "Connection test succeeded"; if (event === "CONNECTION_TEST_FAILED") return language.value === "zh" ? "连接测试失败" : "Connection test failed"; const names: Record<string, keyof typeof copy.zh> = { ADMIN_LOGIN_SUCCEEDED: "loginEvent", ADMIN_LOGOUT: "logoutEvent", SETTINGS_CHANGED: "settingsEvent", ADMIN_INITIALIZED: "initializedEvent", LEGACY_CONFIG_IMPORTED: "importedEvent", CONNECTION_TEST: "testEvent" }; return names[event] ? tr(names[event]) : language.value === "zh" ? "系统事件" : event.replaceAll("_", " "); }
-function errorText(code?: string) { if (code === "INVALID_PASSWORD") return tr('invalidPassword'); if (code === "INVALID_ADMIN_PASSWORD") return tr('setupPasswordShort'); if (code === "PASSWORD_CHANGE_REQUIRED") return tr('changePasswordLead'); if (code === "RATE_LIMITED") return tr('rateLimited'); if (code === "INVALID_WEBRTC_PORT_RANGE") return language.value === "zh" ? "WebRTC UDP 端口范围无效，请填写 1024–65535 且起始端口不能大于结束端口。" : language.value === "de" ? "Der WebRTC-UDP-Portbereich ist ungültig. Verwende 1024–65535; der Startport darf nicht größer als der Endport sein." : "The WebRTC UDP port range is invalid. Use 1024–65535 with the start no greater than the end."; if (code === "WEBRTC_PORT_LOCKED") return language.value === "zh" ? "WebRTC 已开启，请先关闭并保存后再修改端口范围。" : language.value === "de" ? "WebRTC ist aktiviert. Deaktiviere es und speichere zuerst, bevor du den Portbereich änderst." : "WebRTC is enabled. Turn it off and save before changing the port range."; const probe: Record<string, { zh: string; en: string; de: string }> = { INVALID_TARGET: { zh: "TeamSpeak 服务器地址格式无效。", en: "The TeamSpeak server address is invalid.", de: "Die TeamSpeak-Serveradresse ist ungültig." }, PING_UNAVAILABLE: { zh: "当前运行环境没有可用的 ICMP Ping 工具。", en: "The runtime does not provide an ICMP ping tool.", de: "In der Laufzeitumgebung ist kein ICMP-Ping-Tool verfügbar." }, HOST_NOT_FOUND: { zh: "找不到服务器主机名。", en: "The server hostname could not be resolved.", de: "Der Servername konnte nicht aufgelöst werden." }, UNREACHABLE: { zh: "无法连接 TeamSpeak 服务器。", en: "The TeamSpeak server is unreachable.", de: "Der TeamSpeak-Server ist nicht erreichbar." }, TIMEOUT: { zh: "连接 TeamSpeak 超时。", en: "The TeamSpeak connection timed out.", de: "Die Verbindung zu TeamSpeak ist abgelaufen." }, PROTOCOL_NEGOTIATION_FAILED: { zh: "无法识别 TeamSpeak 协议。", en: "TeamSpeak protocol negotiation failed.", de: "Die Aushandlung des TeamSpeak-Protokolls ist fehlgeschlagen." }, SERVER_REJECTED: { zh: "TeamSpeak 服务器拒绝了连接。", en: "The TeamSpeak server rejected the connection.", de: "Der TeamSpeak-Server hat die Verbindung abgelehnt." }, TARGET_NOT_ALLOWED: { zh: "此地址不允许在开放模式中使用。", en: "This target is not allowed in open mode.", de: "Dieses Ziel ist im offenen Modus nicht erlaubt." } }; return probe[code || ""]?.[language.value] ?? tr('requestFailed'); }
+function errorText(code?: string) { if (code === "INVALID_PASSWORD") return tr('invalidPassword'); if (code === "INVALID_ADMIN_PASSWORD") return tr('setupPasswordShort'); if (code === "PASSWORD_CHANGE_REQUIRED") return tr('changePasswordLead'); if (code === "RATE_LIMITED") return tr('rateLimited'); if (code === "INVALID_WEBRTC_PORT_RANGE") return language.value === "zh" ? "WebRTC UDP 端口范围无效，请填写 1024–65535 且起始端口不能大于结束端口。" : language.value === "de" ? "Der WebRTC-UDP-Portbereich ist ungültig. Verwende 1024–65535; der Startport darf nicht größer als der Endport sein." : "The WebRTC UDP port range is invalid. Use 1024–65535 with the start no greater than the end."; if (code === "WEBRTC_PORT_LOCKED") return language.value === "zh" ? "WebRTC 已开启，请先关闭并保存后再修改端口范围。" : language.value === "de" ? "WebRTC ist aktiviert. Deaktiviere es und speichere zuerst, bevor du den Portbereich änderst." : "WebRTC is enabled. Turn it off and save before changing the port range."; const relayErrors: Record<string, { zh: string; en: string; de: string }> = { INVALID_RELAY_NAME: { zh: "中继名称无效或为空。", en: "The relay name is invalid or empty.", de: "Der Relay-Name ist ungültig oder leer." }, INVALID_RELAY_TARGET: { zh: "中继服务器地址无效。", en: "The relay server address is invalid.", de: "Die Relay-Serveradresse ist ungültig." }, INVALID_RELAY_TOKEN: { zh: "启用中继时必须填写令牌。", en: "A relay token is required when the relay is enabled.", de: "Beim Aktivieren des Relays ist ein Token erforderlich." } }; if (relayErrors[code || ""]) return relayErrors[code || ""][language.value]; const probe: Record<string, { zh: string; en: string; de: string }> = { INVALID_TARGET: { zh: "TeamSpeak 服务器地址格式无效。", en: "The TeamSpeak server address is invalid.", de: "Die TeamSpeak-Serveradresse ist ungültig." }, PING_UNAVAILABLE: { zh: "当前运行环境没有可用的 ICMP Ping 工具。", en: "The runtime does not provide an ICMP ping tool.", de: "In der Laufzeitumgebung ist kein ICMP-Ping-Tool verfügbar." }, HOST_NOT_FOUND: { zh: "找不到服务器主机名。", en: "The server hostname could not be resolved.", de: "Der Servername konnte nicht aufgelöst werden." }, UNREACHABLE: { zh: "无法连接 TeamSpeak 服务器。", en: "The TeamSpeak server is unreachable.", de: "Der TeamSpeak-Server ist nicht erreichbar." }, TIMEOUT: { zh: "连接 TeamSpeak 超时。", en: "The TeamSpeak connection timed out.", de: "Die Verbindung zu TeamSpeak ist abgelaufen." }, PROTOCOL_NEGOTIATION_FAILED: { zh: "无法识别 TeamSpeak 协议。", en: "TeamSpeak protocol negotiation failed.", de: "Die Aushandlung des TeamSpeak-Protokolls ist fehlgeschlagen." }, SERVER_REJECTED: { zh: "TeamSpeak 服务器拒绝了连接。", en: "The TeamSpeak server rejected the connection.", de: "Der TeamSpeak-Server hat die Verbindung abgelehnt." }, TARGET_NOT_ALLOWED: { zh: "此地址不允许在开放模式中使用。", en: "This target is not allowed in open mode.", de: "Dieses Ziel ist im offenen Modus nicht erlaubt." } }; return probe[code || ""]?.[language.value] ?? tr('requestFailed'); }
+
+function connectionFailureText(code?: string) {
+  const names: Record<string, keyof typeof copy.zh> = {
+    PASSWORD_REQUIRED: "serverPasswordRequiredError",
+    SERVER_PASSWORD_REQUIRED: "serverPasswordRequiredError",
+    INVALID_PASSWORD: "invalidServerPasswordError",
+    INVALID_SERVER_PASSWORD: "invalidServerPasswordError",
+    HOST_NOT_FOUND: "hostNotFoundError",
+    UNREACHABLE: "networkUnreachableError",
+    TIMEOUT: "networkTimeoutError",
+    PROTOCOL_NEGOTIATION_FAILED: "protocolFailureError",
+    SERVER_REJECTED: "serverRejectedError",
+    PING_UNAVAILABLE: "pingUnavailableError",
+  };
+  return names[code || ""] ? tr(names[code || ""]) : errorText(code);
+}
 
 interface ApiError extends Error { code?: string }
 async function getJson(url: string): Promise<any> { const response = await fetch(url, { headers: { accept: "application/json" } }); return parseResponse(response); }
@@ -758,6 +865,12 @@ async function parseResponse(response: Response) { const value = await response.
 .advanced-card{grid-column:1 / -1}
 .advanced-card .card-help{margin:5px 0 0;color:#7e8c88;font-size:10px;line-height:1.5}
 .advanced-card .toggle-choice{margin:0}
+.relay-card{grid-column:1 / -1}
+.relay-card .card-help{margin:5px 0 0;color:#7e8c88;font-size:10px;line-height:1.5}
+.relay-card .toggle-choice{margin:0}
+.relay-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.relay-fields .password-row{grid-column:1 / -1}
+.relay-card .field-help{line-height:1.55}
 .webrtc-port-fields{display:grid;gap:10px;padding:14px;background:#f6f9f8;border:1px solid #e4efeb;border-radius:10px}
 .port-fields-heading strong,.port-fields-heading small{display:block}
 .port-fields-heading strong{font-size:11px}
@@ -775,6 +888,7 @@ async function parseResponse(response: Response) { const value = await response.
 :global(html[data-theme="dark"] .port-inputs input:disabled){color:#9bb0aa;background:#263a35;border-color:#3a514b}
 :global(html[data-theme="dark"] .modal-card){color:#e8f3f0;background:#172321;border-color:#30413d}
 :global(html[data-theme="dark"] .modal-card p){color:#9bb0aa}
+@media(max-width:850px){.relay-card{grid-column:auto}.relay-fields{grid-template-columns:1fr}.relay-fields .password-row{grid-column:auto}}
 @media(max-width:520px){.advanced-card{grid-column:auto}.port-inputs{grid-template-columns:1fr}}
 
 /* Server settings are a short form, not a set of independent data feeds.
