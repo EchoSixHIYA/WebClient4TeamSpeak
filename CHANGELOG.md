@@ -1,25 +1,5 @@
 # Changelog
 
-## [Unreleased] — 2026-09-10
-
-### 中文
-
-- 新增正式中继部署模式：中继实例不提供前台和管理员后台，只接受带令牌的网关转发会话。
-- 管理员可配置多个中继节点，访客可在欢迎页为当前连接选择直连或指定中继。
-- 修复用户正常断开后被管理员运维日志误显示为“请求失败”的问题。
-
-### English
-
-- Added a formal relay deployment mode: relay instances expose no visitor or admin UI and accept only token-authenticated gateway sessions.
-- Administrators can configure multiple relay nodes, and visitors can choose direct access or a specific relay for each connection.
-- Fixed normal user disconnects being shown as “request failed” in administrator connection history.
-
-### Deutsch
-
-- Einen dedizierten Relay-Bereitstellungsmodus ergänzt: Relay-Instanzen stellen keine Besucher- oder Admin-Oberfläche bereit und akzeptieren nur Gateway-Sitzungen mit Token.
-- Administratoren können mehrere Relay-Knoten konfigurieren; Besucher wählen pro Verbindung Direktzugriff oder ein bestimmtes Relay.
-- Behoben, dass normale Benutzertrennungen im Administrationsverlauf als „Anfrage fehlgeschlagen“ erschienen.
-
 ## [0.2.0] — 2026-09-10
 
 ### 中文
@@ -29,6 +9,9 @@
 - 标注中继服务为 WebSpeak 自带实现；同时注明 WebRTC 使用 MIT 许可的 `werift` 依赖，TeamSpeak 连接使用项目维护的 SDK fork。
 - 细分 TeamSpeak 连接失败原因，服务器需要密码时提示用户输入密码并重试。
 - 优化管理员历史连接日志：能够追溯时显示具体原因，无法追溯时使用通用失败提示，不猜测历史原因。
+- 新增正式中继部署模式：中继实例不提供前台和管理员后台，只接受带令牌的网关转发会话。
+- 管理员可配置多个中继节点，访客可在欢迎页为当前连接选择直连或指定中继。
+- 修复用户正常断开后被管理员运维日志误显示为“请求失败”的问题。
 
 ### English
 
@@ -37,6 +20,9 @@
 - Clarified that the relay is built into WebSpeak, while WebRTC uses the MIT-licensed `werift` dependency and TeamSpeak connectivity uses the project-maintained SDK fork.
 - Classified TeamSpeak connection failures and prompt users for a server password with a retry when authentication requires one.
 - Improved administrator connection history: show a specific reason when available and use a generic failure message when older records cannot be traced, without guessing.
+- Added a formal relay deployment mode: relay instances expose no visitor or admin UI and accept only token-authenticated gateway sessions.
+- Administrators can configure multiple relay nodes, and visitors can choose direct access or a specific relay for each connection.
+- Fixed normal user disconnects being shown as “request failed” in administrator connection history.
 
 ### Deutsch
 
@@ -45,6 +31,9 @@
 - Klargestellt, dass das Relay Bestandteil von WebSpeak ist; WebRTC verwendet die MIT-lizenzierte Abhängigkeit `werift`, die TeamSpeak-Verbindung den projektgepflegten SDK-Fork.
 - TeamSpeak-Verbindungsfehler genauer klassifiziert und bei erforderlichem Serverpasswort eine Eingabe mit Wiederholung angeboten.
 - Den Verlauf der Administrator-Verbindungen verbessert: verfügbare Ursachen werden angezeigt, ältere nicht nachvollziehbare Einträge erhalten eine allgemeine Fehlermeldung statt einer Vermutung.
+- Einen dedizierten Relay-Bereitstellungsmodus ergänzt: Relay-Instanzen stellen keine Besucher- oder Admin-Oberfläche bereit und akzeptieren nur Gateway-Sitzungen mit Token.
+- Administratoren können mehrere Relay-Knoten konfigurieren; Besucher wählen pro Verbindung Direktzugriff oder ein bestimmtes Relay.
+- Behoben, dass normale Benutzertrennungen im Administrationsverlauf als „Anfrage fehlgeschlagen“ erschienen.
 
 ## [0.1.8] — 2026-09-08
 
