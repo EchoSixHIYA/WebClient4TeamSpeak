@@ -8,6 +8,8 @@ import { WebSpeakDatabase } from "./persistence/database.js";
 import { loadOrCreateMasterSecret } from "./security/master-secret.js";
 import { AdminService } from "./admin/admin-service.js";
 import { JoinTicketStore } from "./server/join-ticket.js";
+import { parseTeamSpeakTarget } from "./domain/teamspeak-target.js";
+import type { AccelerationRelayOptions } from "./server/acceleration-relay.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, "..");
@@ -49,6 +51,7 @@ async function main() {
     voiceBridgeOptions: {
       joinTickets,
       webRtc: () => adminService.getWebRtcAudioOptions(),
+      acceleration: readAccelerationRelayOptions,
     },
     adminService,
     logger,
@@ -65,6 +68,23 @@ async function main() {
   };
   process.on("SIGINT", () => shutdown("SIGINT"));
   process.on("SIGTERM", () => shutdown("SIGTERM"));
+}
+
+function readAccelerationRelayOptions(): AccelerationRelayOptions | undefined {
+  const relay = process.env.WEBSPEAK_ACCELERATION_RELAY?.trim();
+  const token = process.env.WEBSPEAK_ACCELERATION_RELAY_TOKEN?.trim();
+  if (!relay && !token) return undefined;
+  if (!relay || !token) {
+    console.warn("WEBSPEAK_ACCELERATION_RELAY and WEBSPEAK_ACCELERATION_RELAY_TOKEN must be configured together");
+    return undefined;
+  }
+  try {
+    const endpoint = parseTeamSpeakTarget(relay, 39087);
+    return { relayHost: endpoint.host, relayPort: endpoint.port, token };
+  } catch {
+    console.warn("WEBSPEAK_ACCELERATION_RELAY is invalid; acceleration is disabled");
+    return undefined;
+  }
 }
 
 function readPackageVersion(): string {

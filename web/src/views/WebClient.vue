@@ -41,6 +41,7 @@
               <label class="field-label" for="server-port"><span>{{ t('serverPort') }}</span><div class="field-wrap"><Icon name="hash" :size="17" /><input id="server-port" v-model="serverPort" inputmode="numeric" type="text" maxlength="5" :placeholder="t('serverPortPlaceholder')" /></div></label>
             </div>
             <p v-if="accessMode === 'open'" class="field-hint">{{ t('serverAddressHint') }}</p>
+            <label v-if="accelerationAvailable" class="acceleration-choice"><input v-model="accelerationEnabled" type="checkbox" /><span><strong>{{ t('mainlandAcceleration') }}</strong><small>{{ t('mainlandAccelerationHint') }}</small></span></label>
             <div v-if="accessMode === 'open' && (favoriteServers.length || recentServers.length)" class="local-servers">
               <div v-if="favoriteServers.length" class="local-server-group"><span>{{ t('favoriteServers') }}</span><button v-for="favorite in favoriteServers" :key="favorite.id" type="button" @click="selectLocalServer(favorite.address, favorite.nickname)">{{ favorite.label }}</button></div>
               <div v-if="recentServers.length" class="local-server-group"><span>{{ t('recentServers') }}</span><button v-for="recent in recentServers" :key="recent.id" type="button" @click="selectLocalServer(recent.address, recent.nickname)">{{ recent.address }}</button></div>
@@ -378,7 +379,9 @@ const initialized = ref(false);
 const siteName = ref("WebSpeak");
 const welcomeTextZh = ref("");
 const welcomeTextEn = ref("");
-const appVersion = ref("0.1.2");
+const appVersion = ref("0.2.0-preview");
+const accelerationAvailable = ref(false);
+const accelerationEnabled = ref(false);
 const browserError = ref("");
 const serverConfigLoading = ref(true);
 const memberQuery = ref("");
@@ -454,6 +457,8 @@ const translations: Record<string, Record<string, string>> = {
     serverPort: "语音端口",
     serverPortPlaceholder: "9987",
     serverAddressHint: "这是网关服务器连接的 TeamSpeak 地址和端口，不是浏览器直接连接地址。",
+    mainlandAcceleration: "大陆节点智能加速",
+    mainlandAccelerationHint: "通过已配置的大陆节点转发，适合境外连接不稳定或被拒绝的服务器。",
     nickname: "你的昵称",
     nicknamePlaceholder: "例如：Alex Rivera",
     targetChannel: "目标频道",
@@ -711,6 +716,8 @@ const translations: Record<string, Record<string, string>> = {
     serverPort: "Voice port",
     serverPortPlaceholder: "9987",
     serverAddressHint: "This is the TeamSpeak address and port reached by the gateway, not a direct browser connection.",
+    mainlandAcceleration: "Mainland node acceleration",
+    mainlandAccelerationHint: "Route this connection through the configured mainland relay for servers that reject or slow overseas traffic.",
     nickname: "Your nickname",
     nicknamePlaceholder: "e.g. Alex Rivera",
     targetChannel: "Target channel",
@@ -971,6 +978,8 @@ translations.de = {
   serverPort: "Sprachport",
   serverPortPlaceholder: "9987",
   serverAddressHint: "Dies ist die TeamSpeak-Adresse und der Port, die vom Gateway erreicht werden – keine direkte Browseradresse.",
+  mainlandAcceleration: "Beschleunigung über einen Festlandknoten",
+  mainlandAccelerationHint: "Leitet diese Verbindung über das konfigurierte Festland-Relay – für Server mit instabilen oder abgelehnten Auslandsverbindungen.",
   nickname: "Dein Name",
   nicknamePlaceholder: "z. B. Alex Rivera",
   targetChannel: "Zielkanal",
@@ -1560,7 +1569,7 @@ function doConnect() {
     serverPort.value = serverPort.value.trim();
   }
   selectedChannelId.value = "";
-  connect(currentServerTarget(), channel.value.trim(), nickname.value, accessMode.value === "open" ? serverPassword.value : "", rememberIdentity.value ? identityMaterial.value : "", rememberIdentity.value, inviteToken);
+  connect(currentServerTarget(), channel.value.trim(), nickname.value, accessMode.value === "open" ? serverPassword.value : "", rememberIdentity.value ? identityMaterial.value : "", rememberIdentity.value, inviteToken, accelerationEnabled.value);
 }
 
 function doDisconnect() {
@@ -1671,13 +1680,15 @@ async function loadPublicConfig() {
   try {
     const response = await fetch("/api/public-config", { headers: { accept: "application/json" } });
     if (!response.ok) return;
-    const config = await response.json() as { version?: unknown; initialized?: unknown; siteName?: unknown; welcomeText?: unknown; welcomeTextEn?: unknown; accessMode?: unknown; target?: unknown };
+    const config = await response.json() as { version?: unknown; initialized?: unknown; siteName?: unknown; welcomeText?: unknown; welcomeTextEn?: unknown; accessMode?: unknown; target?: unknown; accelerationAvailable?: unknown };
     if (typeof config.version === "string" && config.version.trim()) appVersion.value = config.version.trim();
     initialized.value = config.initialized === true;
     if (typeof config.siteName === "string" && config.siteName.trim()) siteName.value = config.siteName.trim();
     if (typeof config.welcomeText === "string") welcomeTextZh.value = config.welcomeText;
     if (typeof config.welcomeTextEn === "string") welcomeTextEn.value = config.welcomeTextEn;
     accessMode.value = config.accessMode === "open" ? "open" : "fixed";
+    accelerationAvailable.value = config.accelerationAvailable === true;
+    if (!accelerationAvailable.value) accelerationEnabled.value = false;
     const hasInviteTarget = query.has("server") || query.has("target") || query.has("tsHost") || query.has("tsPort");
     if (!hasInviteTarget && typeof config.target === "string" && config.target.trim()) {
       const target = splitTeamSpeakTarget(config.target);
@@ -2110,11 +2121,18 @@ function stopWhisperTalk(): void {
 .reconnect-actions { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; }
 .reconnect-actions .secondary-button { min-height: 34px; padding-inline: 13px; }
 .remember-identity { display: flex; align-items: flex-start; gap: 9px; margin-top: 8px; color: #465650; cursor: pointer; }
+.acceleration-choice { display: flex; align-items: flex-start; gap: 9px; margin: 8px 0 2px; padding: 10px 11px; color: #245f58; background: #edf9f5; border: 1px solid #c4e9df; border-radius: 10px; cursor: pointer; }
+.acceleration-choice input { width: 16px; height: 16px; flex: 0 0 auto; margin: 1px 0 0; accent-color: #087d74; }
+.acceleration-choice strong, .acceleration-choice small { display: block; }
+.acceleration-choice strong { font-size: 11px; font-weight: 800; }
+.acceleration-choice small { margin-top: 3px; color: #6b8c85; font-size: 10px; line-height: 1.45; }
 .remember-identity input { width: 16px; height: 16px; flex: 0 0 auto; margin: 1px 0 0; accent-color: #087d74; }
 .remember-identity strong, .remember-identity small { display: block; }
 .remember-identity strong { font-size: 11px; font-weight: 700; }
 .remember-identity small { margin-top: 3px; color: #8b9994; font-size: 10px; line-height: 1.4; }
 .identity-warning { margin: 8px 0 0; color: #9a6a32; font-size: 10px; line-height: 1.45; }
+:global(html[data-theme="dark"] .acceleration-choice) { color: #b8eee3; background: #183530; border-color: #2b645b; }
+:global(html[data-theme="dark"] .acceleration-choice small) { color: #91b9b0; }
 .local-servers { display: grid; gap: 8px; margin: 1px 0 5px; }
 .local-server-group { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
 .local-server-group > span { width: 100%; color: #87958f; font-size: 10px; font-weight: 700; }

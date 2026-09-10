@@ -14,6 +14,7 @@ import { parseClientCommand, type ClientCommand } from "./voice-protocol.js";
 import { isRecoverable, reconnectDelayMs, reconnectWindowOpen } from "./reconnect-policy.js";
 import { WebRtcAudioSession, type WebRtcAudioOptions, type WebRtcAudioStats, type WebRtcSessionDescription } from "./webrtc-audio.js";
 import { pingTeamSpeakSession } from "./network-probe.js";
+import type { AccelerationRelayOptions } from "./acceleration-relay.js";
 
 const require = createRequire(import.meta.url);
 const { OpusEncoder } = require("@discordjs/opus") as {
@@ -33,6 +34,7 @@ const MAX_SERVER_AUDIO_BUFFERED_BYTES = 4_096;
 export interface VoiceBridgeOptions {
   joinTickets: JoinTicketStore;
   webRtc?: WebRtcAudioOptions | (() => WebRtcAudioOptions);
+  acceleration?: AccelerationRelayOptions | (() => AccelerationRelayOptions | undefined);
 }
 
 export interface AdminSessionSummary {
@@ -120,6 +122,7 @@ interface WebClientEntry {
   nickname: string;
   rememberIdentity: boolean;
   target: TeamSpeakTarget;
+  acceleration?: AccelerationRelayOptions;
   identityLeaseKey?: string;
   webrtcPublicHost?: string;
   channelTree: unknown[];
@@ -164,6 +167,11 @@ export class VoiceBridge {
 
       const { target, serverPassword, nickname } = connection;
       const channelName = connection.channel;
+      const acceleration = connection.accelerated ? this.getAccelerationOptions() : undefined;
+      if (connection.accelerated && !acceleration) {
+        ws.close(4006, "ACCELERATION_UNAVAILABLE");
+        return;
+      }
       const webrtcPublicHost = resolveWebRtcPublicHost(req);
       let identity;
       try {
@@ -196,7 +204,7 @@ export class VoiceBridge {
       this.logger.info({ entryId, nickname, channel: channelName, target: formatTeamSpeakTarget(target) }, "WebClient connecting");
       let tsClient: TSClient;
       try {
-        tsClient = new TSClient({ target, nickname, serverPassword, defaultChannel: channelName, identity }, this.logger);
+        tsClient = new TSClient({ target, nickname, serverPassword, defaultChannel: channelName, identity, ...(acceleration ? { acceleration } : {}) }, this.logger);
       } catch (error: unknown) {
         if (identityLeaseKey) this.identityLeases.release(identityLeaseKey, entryId);
         this.logger.error({ err: error, entryId }, "Could not create TeamSpeak client");
@@ -212,6 +220,7 @@ export class VoiceBridge {
         nickname,
         rememberIdentity: connection.rememberIdentity === true,
         target,
+        ...(acceleration ? { acceleration } : {}),
         ...(identityLeaseKey ? { identityLeaseKey } : {}),
         ...(webrtcPublicHost ? { webrtcPublicHost } : {}),
         channelTree: [],
@@ -321,6 +330,7 @@ export class VoiceBridge {
           whisperTargetIds: [...entry!.whisperTargetIds],
           whisperActive: entry!.whisperActive,
           webrtcAvailable: this.getWebRtcOptions()?.enabled === true,
+          accelerated: Boolean(entry!.acceleration),
           ...(entry!.rememberIdentity ? { identity: tsClient.getIdentityString() } : {}),
         });
         sendJson({ type: "channelList", channels: entry!.channelTree });
@@ -774,6 +784,11 @@ export class VoiceBridge {
 
   private getWebRtcOptions(): WebRtcAudioOptions | undefined {
     const configured = this.options.webRtc;
+    return typeof configured === "function" ? configured() : configured;
+  }
+
+  private getAccelerationOptions(): AccelerationRelayOptions | undefined {
+    const configured = this.options.acceleration;
     return typeof configured === "function" ? configured() : configured;
   }
 

@@ -1,6 +1,6 @@
 {
   "name": "webspeak-webclient",
-  "version": "0.1.8",
+  "version": "0.2.0-preview",
   "private": true,
   "license": "AGPL-3.0-only",
   "type": "module",
@@ -17,7 +17,8 @@
     "prepare:sdk": "node scripts/prepare-sdk.mjs",
     "acceleration:poc": "node scripts/acceleration-poc/smoke.mjs",
     "acceleration:ipv6-smoke": "node scripts/acceleration-poc/smoke-ipv6.mjs",
-    "acceleration:sdk-smoke": "node scripts/acceleration-poc/sdk-smoke.mjs"
+    "acceleration:sdk-smoke": "node scripts/acceleration-poc/sdk-smoke.mjs",
+    "acceleration:relay": "node dist/relay.js"
   },
   "dependencies": {
     "@discordjs/opus": "^0.10.0",

@@ -93,7 +93,7 @@ export function useVoiceWebSocket() {
   const serverEvents = reactive<ServerEvent[]>([]);
   const pokeNotifications = reactive<{ id: string; invokerId: number; invokerUid: string; invokerName: string; message: string; timestamp: number }[]>([]);
   let connectionSequence = 0;
-  let lastConnection: { target: string; channel: string; nickname: string; serverPassword: string; identity?: string; rememberIdentity: boolean } | null = null;
+  let lastConnection: { target: string; channel: string; nickname: string; serverPassword: string; identity?: string; rememberIdentity: boolean; accelerated: boolean } | null = null;
   let latencyProbeSequence = 0;
   const pendingLatencyProbes = new Map<string, { startedAt: number; resolve: (result: LatencyProbeResult | null) => void; timer: ReturnType<typeof setTimeout> }>();
   let webrtcPeer: RTCPeerConnection | null = null;
@@ -1088,9 +1088,9 @@ export function useVoiceWebSocket() {
     clearRemotePlayback(clientId);
   }
 
-  function connect(target: string, channel: string, nickname: string, serverPassword = "", identity = "", rememberIdentity = false, inviteToken = ""): void {
+  function connect(target: string, channel: string, nickname: string, serverPassword = "", identity = "", rememberIdentity = false, inviteToken = "", accelerated = false): void {
     disconnect(true);
-    lastConnection = { target, channel, nickname, serverPassword, ...(identity ? { identity } : {}), rememberIdentity };
+    lastConnection = { target, channel, nickname, serverPassword, ...(identity ? { identity } : {}), rememberIdentity, accelerated };
     identityMaterial.value = identity;
     const sequence = ++connectionSequence;
     state.error = "";
@@ -1099,15 +1099,15 @@ export function useVoiceWebSocket() {
     state.reconnecting = false;
     state.reconnectAttempt = 0;
     state.reconnectFailed = false;
-    void openTicketedConnection(sequence, target, channel, nickname, serverPassword, inviteToken);
+    void openTicketedConnection(sequence, target, channel, nickname, serverPassword, inviteToken, accelerated);
   }
 
-  async function openTicketedConnection(sequence: number, target: string, channel: string, nickname: string, serverPassword: string, inviteToken: string): Promise<void> {
+  async function openTicketedConnection(sequence: number, target: string, channel: string, nickname: string, serverPassword: string, inviteToken: string, accelerated: boolean): Promise<void> {
     try {
       const response = await fetch("/api/join-ticket", {
         method: "POST",
         headers: { "content-type": "application/json", accept: "application/json" },
-        body: JSON.stringify({ target, nickname, channel, serverPassword, ...(inviteToken ? { invite: inviteToken } : {}), ...(lastConnection?.rememberIdentity && lastConnection.identity ? { identity: lastConnection.identity } : {}), ...(lastConnection?.rememberIdentity ? { rememberIdentity: true } : {}) }),
+        body: JSON.stringify({ target, nickname, channel, serverPassword, ...(inviteToken ? { invite: inviteToken } : {}), ...(accelerated ? { accelerated: true } : {}), ...(lastConnection?.rememberIdentity && lastConnection.identity ? { identity: lastConnection.identity } : {}), ...(lastConnection?.rememberIdentity ? { rememberIdentity: true } : {}) }),
       });
       const result = await response.json().catch(() => ({})) as { ticket?: unknown; code?: unknown };
       if (!response.ok || typeof result.ticket !== "string") {
@@ -1168,6 +1168,7 @@ export function useVoiceWebSocket() {
   function joinTicketReason(code: string): string {
     if (code === "NOT_INITIALIZED") return "WebSpeak 尚未完成首次配置";
     if (code === "TARGET_NOT_ALLOWED") return "此 TeamSpeak 服务器地址不允许连接";
+    if (code === "ACCELERATION_UNAVAILABLE") return "大陆节点智能加速尚未在当前网关配置";
     if (code === "INVALID_NICKNAME") return "请输入有效的昵称";
     if (code === "INVITE_INVALID") return "邀请链接已失效或已被撤销";
     return "连接服务器失败，请检查邀请链接或服务器状态";
@@ -1498,7 +1499,7 @@ export function useVoiceWebSocket() {
 
   function reconnectNow(): void {
     if (!lastConnection || state.connecting) return;
-    connect(lastConnection.target, lastConnection.channel, lastConnection.nickname, lastConnection.serverPassword, lastConnection.rememberIdentity ? identityMaterial.value || lastConnection.identity : "", lastConnection.rememberIdentity);
+    connect(lastConnection.target, lastConnection.channel, lastConnection.nickname, lastConnection.serverPassword, lastConnection.rememberIdentity ? identityMaterial.value || lastConnection.identity : "", lastConnection.rememberIdentity, "", lastConnection.accelerated);
   }
 
   function setMicrophoneMuted(muted: boolean): void {

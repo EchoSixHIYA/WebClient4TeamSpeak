@@ -12,6 +12,7 @@ import { AdminSessionStore } from "../admin/admin-session.js";
 import { resolveSafeOpenTarget } from "../security/open-target-policy.js";
 import { identityFromString } from "@echosixhiya/teamspeak-client";
 import { JoinRateLimiter } from "./join-rate-limit.js";
+import type { AccelerationRelayOptions } from "./acceleration-relay.js";
 
 export interface WebServerOptions {
   port: number;
@@ -59,7 +60,8 @@ export function createWebServer(options: WebServerOptions): WebServer {
 
   app.get("/api/public-config", (_request, response) => {
     response.setHeader("Cache-Control", "no-store");
-    response.json(options.adminService.getPublicConfig());
+    const acceleration = resolveAccelerationOptions(options.voiceBridgeOptions.acceleration);
+    response.json({ ...options.adminService.getPublicConfig(), accelerationAvailable: Boolean(acceleration) });
   });
 
   app.post("/api/join-ticket", async (request, response) => {
@@ -104,6 +106,12 @@ export function createWebServer(options: WebServerOptions): WebServer {
     let target = managedInvite?.target ?? policy.defaultTarget;
     let serverPassword = managedInvite?.serverPassword ?? policy.serverPassword;
     const channel = requestedChannel || managedInvite?.channel || "";
+    const accelerationRequested = body.accelerated === true;
+    const acceleration = resolveAccelerationOptions(options.voiceBridgeOptions.acceleration);
+    if (accelerationRequested && !acceleration) {
+      response.status(400).json({ ok: false, code: "ACCELERATION_UNAVAILABLE" });
+      return;
+    }
     if (!managedInvite) {
       try {
         if (policy.accessMode === "open" && typeof body.target === "string" && body.target.trim()) {
@@ -128,6 +136,7 @@ export function createWebServer(options: WebServerOptions): WebServer {
       nickname,
       ...(channel ? { channel } : {}),
       ...(identity ? { identity, rememberIdentity: true } : body.rememberIdentity === true ? { rememberIdentity: true } : {}),
+      ...(accelerationRequested ? { accelerated: true } : {}),
     });
     response.status(201).json({ ok: true, ticket });
   });
@@ -173,6 +182,12 @@ export function createWebServer(options: WebServerOptions): WebServer {
       });
     },
   };
+}
+
+function resolveAccelerationOptions(
+  configured: AccelerationRelayOptions | (() => AccelerationRelayOptions | undefined) | undefined,
+): AccelerationRelayOptions | undefined {
+  return typeof configured === "function" ? configured() : configured;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

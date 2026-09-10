@@ -16,6 +16,7 @@ import {
 import type { Logger } from "../logger.js";
 import { TeamSpeakAdapter, type TeamSpeakProtocol } from "./teamspeak-adapter.js";
 import type { TeamSpeakTarget } from "../domain/teamspeak-target.js";
+import { createAccelerationRelayClient, type AccelerationRelayClient, type AccelerationRelayOptions } from "./acceleration-relay.js";
 
 export interface TSClientOptions {
   target: TeamSpeakTarget;
@@ -24,6 +25,7 @@ export interface TSClientOptions {
   defaultChannel?: string;
   channelPassword?: string;
   identity?: Identity;
+  acceleration?: AccelerationRelayOptions;
 }
 
 export interface TSVoiceData {
@@ -70,6 +72,7 @@ export class TSClient extends EventEmitter {
   private clientId = 0;
   private connected = false;
   private preferredChannelId = 0n;
+  private accelerationClient: AccelerationRelayClient | null = null;
 
   constructor(private options: TSClientOptions, logger: Logger) {
     super();
@@ -79,8 +82,17 @@ export class TSClient extends EventEmitter {
 
   async connect(): Promise<void> {
     if (!this.adapter || !this.client) {
+      let transportTarget = this.options.target;
+      if (this.options.acceleration && !this.accelerationClient) {
+        this.accelerationClient = await createAccelerationRelayClient({
+          ...this.options.acceleration,
+          host: this.options.target.host,
+          port: this.options.target.port,
+        });
+        transportTarget = { host: this.accelerationClient.localHost, port: this.accelerationClient.localPort };
+      }
       this.adapter = new TeamSpeakAdapter({
-        target: this.options.target,
+        target: transportTarget,
         nickname: this.options.nickname,
         identity: this.identity,
         serverPassword: this.options.serverPassword,
@@ -268,10 +280,15 @@ export class TSClient extends EventEmitter {
 
   async disconnect(): Promise<void> {
     this.connected = false;
-    if (this.adapter) await this.adapter.disconnect();
-    this.adapter = null;
-    this.client = null;
-    this.clientId = 0;
+    try {
+      if (this.adapter) await this.adapter.disconnect();
+    } finally {
+      this.accelerationClient?.close();
+      this.accelerationClient = null;
+      this.adapter = null;
+      this.client = null;
+      this.clientId = 0;
+    }
   }
 }
 
