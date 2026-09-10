@@ -21,6 +21,12 @@ npm run acceleration:poc
 
 成功时会输出 `ACCELERATION_POC_OK`，并显示数据包数量、丢包率和往返延迟。
 
+IPv6 回环验证：
+
+```bash
+npm run acceleration:ipv6-smoke
+```
+
 ## 通过隧道连接上海 TeamSpeak
 
 下面的命令会让 SDK 连接本地代理端口，再由 PoC 中继把 UDP 数据转发到指定 TeamSpeak。它不进入指定频道，只验证 TeamSpeak 握手和断开：

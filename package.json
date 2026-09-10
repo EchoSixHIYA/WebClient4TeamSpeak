@@ -16,6 +16,7 @@
     "web:build": "cd web && npx vite build",
     "prepare:sdk": "node scripts/prepare-sdk.mjs",
     "acceleration:poc": "node scripts/acceleration-poc/smoke.mjs",
+    "acceleration:ipv6-smoke": "node scripts/acceleration-poc/smoke-ipv6.mjs",
     "acceleration:sdk-smoke": "node scripts/acceleration-poc/sdk-smoke.mjs"
   },
   "dependencies": {
